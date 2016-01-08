@@ -1,0 +1,86 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf340
+{\fonttbl\f0\fswiss\fcharset0 ArialMT;}
+{\colortbl;\red255\green255\blue255;\red26\green26\blue26;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww23600\viewh20980\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf2 \expnd0\expndtw0\kerning0
+PID\
+Tenemos por un lado una 
+\b escena
+\b0  que es el propio regulador o PID de la calefacci\'f3n. \
+Est\'e1 en fase experimental con una f\'f3rmula de regulaci\'f3n muy b\'e1sica aunque funcional.\
+Lo que no hace es activar el rel\'e9 de la caldera... \'fanicamente muestra en el debug el tiempo que tendr\'eda encendida la caldera.\
+Lo hago as\'ed para tratar de compararlo con el termostato que tengo ahora y ver como se comporta por el momento.\
+Adem\'e1s servir\'e1 para encontrar los par\'e1metros de sintonizaci\'f3n del PID del termostato f\'edsico (k,Td,Ti) y posteriormente crear una funci\'f3n software que me ayude a sintonizar autom\'e1ticamente.\
+En cualquier caso, olv\'eddate de esto ahora... lo importante es que la escena toma una temperatura de un sensor y la compara con la temperatura de consigna.\
+En base a eso hace una serie de operaciones matem\'e1ticas de regulaci\'f3n y muestra en el debug cuanto tiempo encender\'eda la caldera.\
+\
+La temperatura de consigna la toma de una etiqueta del 
+\b VD
+\b0 .\
+El VD hace varias cosas... \
+por un lado controla el modo de operaci\'f3n (off=5\'baC, Eco=18\'baC, Manual con la temperatura que seleccionas o Auto con la temperatura que toma de un panel de temperatura).\
+Hasta ahora hice pruebas con el panel de temperaturas (modo AUTO), ya que es lo que m\'e1s me interesa.\
+Empieza funcionando correctamente, pero cuando lleva un tiempo, de forma aleatoria (no encuentro pat\uc0\u341 on) deja de actualizar la etiqueta de temperatura en modo Auto de la que toma la consigna la escena PID.\
+\
+\
+Hola,\
+creo que ya he visto el problema.\
+En el primer c\'f3digo que me pasaste, la variable "SumErr" no queda correctamente declarada dentro de la funci\'f3n\'a0AntiWindUp(). Pero aparte de este problema hab\'eda otro, si te fijas en la inicializaci\'f3n de variables en la funci\'f3n inicializar(), al asignar el valor a "SumErr" has escrito "SumError" y luego retornas \'93SumErr" que es nula. Es por esto que te sigue dando problemas a\'fan despu\'e9s de los cambios que haces en tus pruebas.\
+\
+He corregido el problemas, te adjunto el c\'f3digo para que lo pruebes.\
+Ten en cuenta que al copiar y pegar el c\'f3digo que me pasaste por mail, se han introducido caracteres extra\'f1os que me provocaban errores, es por esto que he re-escrito el c\'f3digo y ver\'e1s cambios a parte de la correcci\'f3n del error.\
+Ten en cuenta que he modificado\'a0idVD["TERMOSTATO"], id["TEMPERATURACLIMA\'94], Histeresis y TiempoCiclo con mis valores para hacer pruebas.\
+\
+Lo que no me queda muy claro es si he dejado bien el error acumulado y su uso en el c\'e1lculo diferencial.\'a0\
+Entiendo que \'93Err\'94 es la diferencia entre la temperatura de la sonda y la temperatura de consigna.\
+Veo que \'93Err\'94 se utiliza para el c\'e1lculo integral, pero antes se filtra por AntiWindUp() y realmente se usa \'93SumErr\'94.\
+Si \'93Err\'94 es menor que el rango de hist\'e9resis se va acumulando en \'93SumErr\'94 cada ciclo (TiempoCiclo), pero veo un problema, cuando \'93Err\'94 resulte negativo se ir\'e1n acumulando valores negativos cada vez mayores.\
+Si NO es menor se usa 0, pero esto no me cuadra, no deber\'eda usarse \'93Err\'94?\
+\
+En cuanto al VD, entiendo es un termostato virtual al que se le puede asignar una temperatura de consigna (manualmente o con botones preasignados) o bien dejar que tome los valores del panel de calefacci\'f3n de una zona.\
+Tengo errores en el bucle principal y en todos los botones excepto \'93eCo\'b7, algunos debidos a que me falta la variable global "SetPoint" y otros que no he detectado, por lo que no puedo ver el problema del \'93cuelgue\'94.\
+Si te parece puedo intentar reescribir un termostato virtual.\
+\
+\
+Revisando el VD veo que se act\'faa sobre los paneles de calefacci\'f3n y creo que as\'ed est\'e1 mal enfocado, no se necesita un control de calefacci\'f3n (puede que adicionalmente s\'ed) que opere los paneles, sino un termostato que registre la temperatura de consigna de forma manual o desde la programaci\'f3n de un panel de calefacci\'f3n y comparando la temperatura de consigna en un momento dado contra una sonda de temperatura y ayudado por un sistema PID, decida las operaciones a realizar sobre un actuador de caldera.\
+Se necesitar\'eda un Termostato Virtual que permita indicar que panel de calefacci\'f3n sostendr\'e1 su programaci\'f3n por defecto, tambi\'e9n har\'edan falta botones para poder indicar la temperatura manual y el tiempo durante el que se desea mantener. Ademas botones para seleccionar la sonda de temperatura y el actuador de caldera. Ser\'eda parecido a un termostato f\'edsico.\
+Dada la complejidad del sistema PID, este se puede mantenerse en una escena separada tal y como esta ahora o a\'f1adirlo al bucle principal del termostato.\
+Se podr\'eda utilizar una variable global para mantener una tabla que represente el termostato y que sirva en su caso para intercambiar informaci\'f3n con la escena PID.\
+	
+\b \{nodeId, deviceIcon, targetLevel, timestamp, tempId, value , actuatorId, zoneId, panelId\} 
+\b0 \
+	
+\b nodeId
+\b0  = id del VD\
+	
+\b deviceIcon
+\b0  = id del icono de usuario para cada estado\
+	
+\b targetLevel
+\b0  = temperatura de consigna\
+	
+\b timestamp
+\b0  = instante hasta el cual se mantiene el modo manual\
+	
+\b tempId
+\b0  = id de la sonda de temperatura\
+	
+\b value
+\b0  = valor actual (temperatura)\
+	
+\b actuatorId
+\b0  = id del actuador de la caldera.\
+	
+\b zoneId
+\b0  = id del panel de calefacci\'f3n (si es 0, funcionar de modo manual)\
+\
+En una primera fase, hacer que el termostato virtual funcione en modo autom\'e1tico, se pueda seleccionar el panel de calefacci\'f3n y la sonda de temperatura y rellena  
+\b \{targetLevel, timestamp, value\}.\
+
+\b0 De esta forma Antonio puede trabajar el la escena PID, conservando en el c\'f3digo una funci\'f3n que obtenga los valores del termostato virtual 
+\b targetLevel 
+\b0 y 
+\b value}
