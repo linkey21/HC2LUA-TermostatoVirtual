@@ -23,7 +23,7 @@ if not toolKit then toolKit = {
   -- (global) level: nivel de LOG
   -- (string) mensaje: mensaje
   log = (function(self, level, mensaje, ...)
-    if mensaje == nil then mensaje = 'nil' end
+    if not mensaje then mensaje = 'nil' end
     if nivelLog >= level then
       local color = 'yellow'
       if level == INFO then color = 'green' end
@@ -96,6 +96,81 @@ function getDevice(nodeId)
   return resetDevice(nodeId)
 end
 
+-- getPanelId(roomId)
+-- (number) roomId: id de la habitación
+function getPanel(roomId)
+  toolKit:log(DEBUG, 'roomId: '..roomId)
+  -- obtener paneles de temperatura
+  if not HC2 then HC2 = Net.FHttp("127.0.0.1", 11111) end
+  response ,status, errorCode = HC2:GET("/api/panels/heating")
+  -- recorrer la tabla de paneles y buscar si alguno controla esta habitación
+  local panels = json.decode(response)
+  for pKey, pValue in pairs(panels) do
+    toolKit:log(DEBUG, 'Panel: '..pValue.id)
+    -- obtener panel
+    if not HC2 then HC2 = Net.FHttp("127.0.0.1", 11111) end
+    response ,status, errorCode = HC2:GET("/api/panels/heating/"..pValue.id)
+    local panel = json.decode(response)
+    local rooms = panel['properties'].rooms
+    -- recorrer las habitaciones de cada panel
+    for rKey, rValue in pairs(rooms) do
+      toolKit:log(DEBUG, 'Room: '..rValue)
+      if rValue == roomId then return panel end
+    end
+  end
+  return false
+end
+
+-- getTargetLevel(panel)
+--(table) panel: tabla que representa un panel de temperatura
+function getTargetLevel(panel)
+  --[[
+  monday, morning, hour, minute, temperature, day, evening, night,
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+  sunday
+  handTemperature, handTimestamp, vacationTemperature
+  --]]
+  -- propiedades del panel
+  local properties = panel.properties
+  -- dia de la semana de hoy
+  local dow = string.lower(tostring(os.date('%A')))
+  toolKit:log(DEBUG, 'Dia de la semana: '..dow)
+  -- tabla con propiedades del día de la semana
+  local todayTab = properties[dow]
+  toolKit:log(DEBUG, todayTab.morning.temperature)
+
+  -- dia de la semana de ayer
+  dow = string.lower(tostring(os.date('%A', os.time() - 24*60*60 )))
+  toolKit:log(DEBUG, 'Dia de ayer: '..dow)
+  -- tabla con propiedades de ayer
+  local yesterdayTab = properties[dow]
+  -- temperatura de la noche de ayer
+  local temperatura = yesterdayTab['night'].temperature
+  toolKit:log(DEBUG, 'Temperatura ayer noche: '..temperatura)
+
+  local states = {'morning', 'day', 'evening', 'night'}
+  local year, month, day = os.date('%Y'), os.date('%m'), os.date('%d')
+  toolKit:log(DEBUG, os.time())
+  for key, value in pairs(states) do
+    local hour = todayTab[value].hour
+    local min = todayTab[value].minute
+    toolKit:log(DEBUG, hour..':'..min)
+    local timestamp =
+     os.time{year = year, month = month, day = day, hour = hour, min = min}
+    toolKit:log(DEBUG, timestamp)
+    if os.time() >= timestamp then
+      temperatura = todayTab[value].temperature
+    else
+      break
+    end
+  end
+  return temperatura
+end
+
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
 toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
@@ -103,20 +178,25 @@ toolKit:log(INFO, release['name']..
 if not termostatoVirtual then termostatoVirtual = getDevice(_selfId) end
 toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
+--[[-- inicializar etiquetas --]]
 fibaro:call(_selfId, "setProperty", "ui.separador.value", '======')
 fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value", '20ºC / 21ºC')
+fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", '0m')
 -- refrescar icono
 fibaro:call(_selfId, 'setProperty', "currentIcon", iconoId)
 
---[[-- ccomprobar si existe la variable global y crearla --]]
+-- obtener id del panel
+local panel = getPanel(fibaro:getRoomID(_selfId))
+if panel then
+  toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
+end
 
---[[ comparar timestamp con os.time()
-  si es menor
-    tomar temperatura del panel
+-- comparar timestamp con os.time()
+-- si es menor tomar temperatura del panel
+local targetLevel = getTargetLevel(panel)
+toolKit:log(DEBUG, 'Temperatura consigna: '..targetLevel..'ºC')
+-- si en mayor tomar temperatura del VD
 
-  si en mayor
-    tomar temperatura del VD
+-- actualizar etiqueta de tiempo
 
-  actualizar etiqueta de tiempo
---]]
 fibaro:sleep(10000)
