@@ -264,9 +264,28 @@ while true do
     end
   end
 
-  -- si es mayor tomar temperatura del VD
-
+  --[[tiempo de protección]]
+  local shadowTime = termostatoVirtual.timestamp - os.time()
+  if shadowTime <= 0 then shadowTime = 0 else shadowTime = shadowTime / 60 end
+  local minText = {}; local timeLabel = '06h 00m'
+  minText[0]   = '00h 00m'; minText[15]  = '00h 15m'; minText[30]  = '00h 30m'
+  minText[45]  = '00h 45m'; minText[60]  = '01h 00m'; minText[75]  = '01h 15m'
+  minText[90]  = '01h 30m'; minText[105] = '01h 45m'; minText[120] = '02h 00m'
+  minText[135] = '02h 15m'; minText[150] = '02h 30m'; minText[165] = '02h 45m'
+  minText[180] = '03h 00m'; minText[195] = '03h 15m'; minText[210] = '03h 30m'
+  minText[225] = '03h 45m'; minText[240] = '04h 00m'; minText[255] = '04h 15m'
+  minText[270] = '04h 30m'; minText[285] = '04h 45m'; minText[300] = '05h 00m'
+  minText[315] = '05h 15m'; minText[330] = '05h 30m'; minText[345] = '05h 45m'
+  minText[360] = '06h 00m'
+  for value = 360, 0, -15 do
+    if shadowTime <= value then
+      timeLabel = minText[value]
+    else
+      break
+    end
+  end
   -- actualizar etiqueta de tiempo
+  fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
 
   fibaro:sleep(10000)
 end
