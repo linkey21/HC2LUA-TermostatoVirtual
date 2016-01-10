@@ -70,6 +70,11 @@ function resetDevice(nodeId)
   local termostatoVirtual = {}
   -- almacenar el id del VD para saber que ha sido iniciada
   termostatoVirtual['nodeId'] = nodeId
+  termostatoVirtual['panelId'] = 0
+  termostatoVirtual['probeId'] = 0
+  termostatoVirtual['targetLevel'] = 0
+  termostatoVirtual['value'] = 0
+  termostatoVirtual['timestamp'] = os.time()
 
   -- guardar la tabla en la variable global
   fibaro:setGlobal('dev'..nodeId, json.encode(termostatoVirtual))
@@ -160,7 +165,7 @@ function getTargetLevel(panel)
   toolKit:log(DEBUG, os.time())
   -- inicialmete tomar como temperatura la última temperatura del día anteriror.
   -- recorrer los diferentes partes en las que divide el día en panel y comparar
-  -- el timestamp de cada una de ellas con el timestap actual, si el actual es
+  -- el timestamp de cada una de ellas con el timestamp actual, si el actual es
   -- mayor o igual se va tomando la temperatura de esa parte.
   for key, value in pairs(states) do
     local hour = todayTab[value].hour
@@ -190,66 +195,79 @@ end
 toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 
---[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
-
--- recuperar dispositivo
-local termostatoVirtual = getDevice(_selfId)
-toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
-
---[[-- inicializar etiquetas --]]
-fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", '0m')
-fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value", '🔧')
+-- inicializar etiquetas --
+fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+ '00.00ºC / 00.00ºC _')
+fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", '00h 00m')
 fibaro:call(_selfId, "setProperty", "ui.separador.value", '')
+fibaro:call(_selfId, "setProperty", "ui.probeLabel.value", '🔧')
+fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value", '🔧')
+-- inicializar dispositivo
+resetDevice(_selfId)
 
--- refrescar icono
-fibaro:call(_selfId, 'setProperty', "currentIcon", iconoId)
 
---[[Panel]]
--- obtener el  panel
-local panel = getPanel(fibaro:getRoomID(_selfId))
-if panel then
-  toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
-  -- actualizar dispositivo
-  termostatoVirtual.panelId = panel.id
-  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+--[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
+while true do
+  -- recuperar dispositivo
+  local termostatoVirtual = getDevice(_selfId)
+  toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
+
+  -- refrescar icono
+  fibaro:call(_selfId, 'setProperty', "currentIcon", iconoId)
+
+  --[[Panel]]
+  -- obtener el  panel
+  local panel = getPanel(fibaro:getRoomID(_selfId))
+  if panel then
+    toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
+    -- actualizar dispositivo
+    termostatoVirtual.panelId = panel.id
+    fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+  end
+
+  --[[temperarura actual]]
+  -- si hay sonda declarada obtener la temperatura
+  if termostatoVirtual.probeId and termostatoVirtual.probeId ~= 0 then
+    local value = tonumber(fibaro:getValue(termostatoVirtual.probeId, 'value'))
+    local targetLevel = termostatoVirtual.targetLevel
+    local onOff = ' _'
+    if value < targetLevel then onOff = ' 🔥' end
+    -- actualizar dispositivo
+    termostatoVirtual.value = value
+    fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+    -- actualizar etiqueta
+    targetLevel = string.format('%.2f', targetLevel)
+    value = string.format('%.2f', value)
+    fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+     value..'ºC / '..targetLevel..'ºC'..onOff)
+  end
+
+  --[[temperarura de consigna]]
+  -- comparar timestamp con os.time()
+  if termostatoVirtual.timestamp < os.time() then
+    -- si es menor tomar temperatura del panel
+    local targetLevel = getTargetLevel(panel)
+    local onOff = ' _'
+    toolKit:log(INFO, 'Temperatura consigna: '..targetLevel..'ºC')
+    -- si la "targetLevel" es distionto de 0 actualizar al temperarura de consigna
+    if targetLevel > 0 then
+      local value = tonumber(termostatoVirtual.value)
+      if value < targetLevel then onOff = ' 🔥' end
+      -- actualizar dispositivo
+      termostatoVirtual.targetLevel = targetLevel
+      fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+      -- actualizar etiqueta
+      targetLevel = string.format('%.2f', targetLevel)
+      value = string.format('%.2f', value)
+      fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+       value..'ºC / '..targetLevel..'ºC'..onOff)
+    end
+  end
+
+  -- si es mayor tomar temperatura del VD
+
+  -- actualizar etiqueta de tiempo
+
+  fibaro:sleep(10000)
 end
-
---[[temperarura actual]]
--- si hay sonda declarada obtener la temperatura
-if termostatoVirtual.probeId then
-  local value = tonumber(fibaro:getValue(termostatoVirtual.probeId, 'value'))
-  local targetLevel = termostatoVirtual.targetLevel
-  local onOff = ' _'
-  if value < targetLevel then onOff = ' 🔥' end
-  -- actualizar dispositivo
-  termostatoVirtual.value = value
-  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-  -- actualizar etiqueta
-  fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
-   value..'ºC / '..targetLevel..'ºC'..onOff)
-end
-
---[[temperarura de consigna]]
--- comparar timestamp con os.time()
--- si es menor tomar temperatura del panel
-local targetLevel = getTargetLevel(panel)
-local onOff = ' _'
-toolKit:log(INFO, 'Temperatura consigna: '..targetLevel..'ºC')
--- si la "targetLevel" es distionto de 0 actualizar al temperarura de consigna
-if targetLevel > 0 then
-  local value = tonumber(termostatoVirtual.value)
-  if value < targetLevel then onOff = ' 🔥' end
-  -- actualizar dispositivo
-  termostatoVirtual.targetLevel = targetLevel
-  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-  -- actualizar etiqueta
-  fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
-   value..'ºC / '..targetLevel..'ºC'..onOff)
-end
-
--- si es mayor tomar temperatura del VD
-
--- actualizar etiqueta de tiempo
-
-fibaro:sleep(10000)
---🌛  🔼  🔽  🔧  🔥
+--🌛 🔧  🔥
