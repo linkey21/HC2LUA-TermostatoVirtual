@@ -168,7 +168,7 @@ function AntiWindUp(SumErr, Err, Histeresis)
 end
 
 --[[
-putCalefaccion(Salida,ActuadorID,FactorEsc
+putCalefaccion(Salida,ActuadorID,FactorEsc 
 ------------------------------------------------------------------------------]]
 function putCalefaccion(Salida, ActuadorID, FactorEscala)
 	if (Salida > 0) -- Tiempo de calentamiento debe ser positivo para encender

@@ -64,10 +64,9 @@ function resetDevice(nodeId)
       fibaro:abort()
     end
   end
-
   -- crear tabla vacía para dispositivo
   --[['{"nodeId":0, "deviceIcon":0, "targetLevel":0, "timestamp":0,
-   "tempId":0, "value":0 , "actuatorId":0, "zoneId":0, "panelId":0}']]
+   "probeId":0, "value":0 , "actuatorId":0, "zoneId":0, "panelId":0}']]
   local termostatoVirtual = {}
   -- almacenar el id del VD para saber que ha sido iniciada
   termostatoVirtual['nodeId'] = nodeId
@@ -92,11 +91,11 @@ function getDevice(nodeId)
     -- si esta iniciado devolver el dispositivo
     if device.nodeId then return device end
   end
-  -- en cualquier otr caso iniciarlo y devolverlo
+  -- en cualquier otro caso iniciarlo y devolverlo
   return resetDevice(nodeId)
 end
 
--- getPanelId(roomId)
+-- getPanel(roomId)
 -- (number) roomId: id de la habitación
 function getPanel(roomId)
   toolKit:log(DEBUG, 'roomId: '..roomId)
@@ -124,37 +123,45 @@ end
 -- getTargetLevel(panel)
 --(table) panel: tabla que representa un panel de temperatura
 function getTargetLevel(panel)
-  --[[
-  monday, morning, hour, minute, temperature, day, evening, night,
-  tuesday
-  wednesday
-  thursday
-  friday
-  saturday
-  sunday
-  handTemperature, handTimestamp, vacationTemperature
-  --]]
-  -- propiedades del panel
+  -- obtener propiedades del panel
   local properties = panel.properties
-  -- dia de la semana de hoy
-  local dow = string.lower(tostring(os.date('%A')))
-  toolKit:log(DEBUG, 'Dia de la semana: '..dow)
-  -- tabla con propiedades del día de la semana
-  local todayTab = properties[dow]
-  toolKit:log(DEBUG, todayTab.morning.temperature)
 
-  -- dia de la semana de ayer
+  -- si vacationTemperature ~= 0 devolver "vacationTemperature"
+  if properties.vacationTemperature ~= 0 then
+    return properties.vacationTemperature
+  end
+
+  -- si handTimestamp >= os.time() devolver "handTemperature"
+  if properties.handTimestamp >= os.time() then
+    return properties.handTemperature
+  end
+
+  -- en otro caso devolver "temperature"
+  -- obtener dia de la semana de hoy
+  local dow = string.lower(tostring(os.date('%A')))
+  toolKit:log(DEBUG, 'Hoy es: '..dow)
+  -- obtener la tabla con propiedades del día de la semana
+  local todayTab = properties[dow]
+
+  -- obtenr día de la semana de fue ayer
   dow = string.lower(tostring(os.date('%A', os.time() - 24*60*60 )))
-  toolKit:log(DEBUG, 'Dia de ayer: '..dow)
-  -- tabla con propiedades de ayer
+  toolKit:log(DEBUG, 'Ayer fue: '..dow)
+  -- obtener tabla con propiedades de ayer
   local yesterdayTab = properties[dow]
-  -- temperatura de la noche de ayer
+  -- obtener la temperatura de la noche de ayer para poder usarla como posible
+  -- temperatura, si la hora actual es anteriror a la de la mañana del panel,
+  -- hay que tomar la de la noche del día anteriror.
   local temperatura = yesterdayTab['night'].temperature
   toolKit:log(DEBUG, 'Temperatura ayer noche: '..temperatura)
 
+  -- las partes en las que divide el día el panel
   local states = {'morning', 'day', 'evening', 'night'}
   local year, month, day = os.date('%Y'), os.date('%m'), os.date('%d')
   toolKit:log(DEBUG, os.time())
+  -- inicialmete tomar como temperatura la última temperatura del día anteriror.
+  -- recorrer los diferentes partes en las que divide el día en panel y comparar
+  -- el timestamp de cada una de ellas con el timestap actual, si el actual es
+  -- mayor o igual se va tomando la temperatura de esa parte.
   for key, value in pairs(states) do
     local hour = todayTab[value].hour
     local min = todayTab[value].minute
@@ -168,35 +175,81 @@ function getTargetLevel(panel)
       break
     end
   end
+  -- devolver la temperatura que corresponde en el panel en este momento
   return temperatura
+end
+
+-- setProperty(property, value)
+-- (string) property: nombre de la propiedad a actualizar
+-- (various) value: valor a asignar a ala propiedad
+function setProperty(property, value)
+  return true
 end
 
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
 toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
+
+--[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
+
 -- recuperar dispositivo
-if not termostatoVirtual then termostatoVirtual = getDevice(_selfId) end
+local termostatoVirtual = getDevice(_selfId)
 toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
 --[[-- inicializar etiquetas --]]
-fibaro:call(_selfId, "setProperty", "ui.separador.value", '======')
-fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value", '20ºC / 21ºC')
 fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", '0m')
+fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value", '🔧')
+fibaro:call(_selfId, "setProperty", "ui.separador.value", '')
+
 -- refrescar icono
 fibaro:call(_selfId, 'setProperty', "currentIcon", iconoId)
 
--- obtener id del panel
+--[[Panel]]
+-- obtener el  panel
 local panel = getPanel(fibaro:getRoomID(_selfId))
 if panel then
   toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
+  -- actualizar dispositivo
+  termostatoVirtual.panelId = panel.id
+  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
 end
 
+--[[temperarura actual]]
+-- si hay sonda declarada obtener la temperatura
+if termostatoVirtual.probeId then
+  local value = tonumber(fibaro:getValue(termostatoVirtual.probeId, 'value'))
+  local targetLevel = termostatoVirtual.targetLevel
+  local onOff = ' _'
+  if value < targetLevel then onOff = ' 🔥' end
+  -- actualizar dispositivo
+  termostatoVirtual.value = value
+  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+  -- actualizar etiqueta
+  fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+   value..'ºC / '..targetLevel..'ºC'..onOff)
+end
+
+--[[temperarura de consigna]]
 -- comparar timestamp con os.time()
 -- si es menor tomar temperatura del panel
 local targetLevel = getTargetLevel(panel)
-toolKit:log(DEBUG, 'Temperatura consigna: '..targetLevel..'ºC')
--- si en mayor tomar temperatura del VD
+local onOff = ' _'
+toolKit:log(INFO, 'Temperatura consigna: '..targetLevel..'ºC')
+-- si la "targetLevel" es distionto de 0 actualizar al temperarura de consigna
+if targetLevel > 0 then
+  local value = tonumber(termostatoVirtual.value)
+  if value < targetLevel then onOff = ' 🔥' end
+  -- actualizar dispositivo
+  termostatoVirtual.targetLevel = targetLevel
+  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+  -- actualizar etiqueta
+  fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+   value..'ºC / '..targetLevel..'ºC'..onOff)
+end
+
+-- si es mayor tomar temperatura del VD
 
 -- actualizar etiqueta de tiempo
 
 fibaro:sleep(10000)
+--🌛  🔼  🔽  🔧  🔥
