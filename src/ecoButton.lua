@@ -1,6 +1,6 @@
 --[[ TermostatoVirtual
 	Dispositivo virtual
-	onOffButton.lua
+	ecoButton.lua
 	por Manuel Pascual
 ------------------------------------------------------------------------------]]
 
@@ -12,7 +12,8 @@
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
-local offTemperature = 5 -- ºC
+local ecoTemperature = 18 -- ºC
+local shadowTime = 360
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
 -- isVariable(varName)
@@ -41,18 +42,10 @@ end
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(_selfId)
 
--- --actualizar dispositivo
-if termostatoVirtual.mode == 0 then
-	termostatoVirtual.mode = 1
-  termostatoVirtual.timestamp = os.time()
-else
-	termostatoVirtual.mode = 0
-	termostatoVirtual.targetLevel = offTemperature
-end
+--actualizar dispositivo
+termostatoVirtual.timestamp = os.time() + shadowTime * 60
+termostatoVirtual.targetLevel = ecoTemperature
 -- guardar en variable global
 fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
 -- actualizar etiqueda de modo de funcionamiento "mode""
-fibaro:call(_selfId, "setProperty", "ui.modeLabel.value",
- mode[termostatoVirtual.mode])
-
-fibaro:debug(mode[termostatoVirtual.mode])
+--fibaro:call(_selfId, "setProperty", "ui.modeLabel.value", mode[termostatoVirtual.mode])
