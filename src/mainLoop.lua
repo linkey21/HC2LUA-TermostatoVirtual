@@ -13,6 +13,7 @@ iconoId = 1059
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 local release = {name='TermostatoVirtual.mainLoop', ver=1, mayor=0, minor=0}
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
+local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = DEBUG                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -34,10 +35,9 @@ if not toolKit then toolKit = {
   end)
 } end
 
---[[----------------------------------------------------------------------------
-isVariable(varName)
-	comprueba si existe una variable global dada(varName)
---]]
+--[[isVariable(varName)
+    (string) varName: nombre de la variable global
+  comprueba si existe una variable global dada(varName) --]]
 function isVariable(varName)
   -- comprobar si existe
   local valor, timestamp = fibaro:getGlobal(varName)
@@ -45,11 +45,10 @@ function isVariable(varName)
   return false
 end
 
---[[----------------------------------------------------------------------------
-resetDevice(nodeId)
-	crea la varaible global para almacenar la tabla que representa el dispositivo
-  inicializa en dispositivo.
---]]
+--[[resetDevice(nodeId)
+    (number) nodeId: número del dispositivo a almacenar en la variable global
+crea una varaible global para almacenar la tabla que representa el
+dispositivo y lo inicializa. --]]
 function resetDevice(nodeId)
   -- si no exite la variable global
   if not isVariable('dev'..nodeId) then
@@ -74,6 +73,7 @@ function resetDevice(nodeId)
   termostatoVirtual['probeId'] = 0
   termostatoVirtual['targetLevel'] = 0
   termostatoVirtual['value'] = 0
+  termostatoVirtual['mode'] = 1 -- mode de funcionamiento por defecto AUTO
   termostatoVirtual['timestamp'] = os.time()
 
   -- guardar la tabla en la variable global
@@ -83,11 +83,9 @@ function resetDevice(nodeId)
   return termostatoVirtual
 end
 
---[[----------------------------------------------------------------------------
-getDevice(nodeId)
-	recupera el dispositivo virtual desde la variable global
-  (number)
---]]
+--[[getDevice(nodeId)
+    (number) nodeId: número del dispositivo a recuperar de la variable global
+  recupera el dispositivo virtual desde la variable global --]]
 function getDevice(nodeId)
   -- si  exite la variable global recuperar dispositivo
   local device = isVariable('dev'..nodeId)
@@ -100,8 +98,10 @@ function getDevice(nodeId)
   return resetDevice(nodeId)
 end
 
--- getPanel(roomId)
--- (number) roomId: id de la habitación
+--[[getPanel(roomId)
+    (number) nodeId: número del dispositivo a almacenar en la variable global
+  devuelve el panel de calefacción que controla la habitación donde se encuentra
+  el disposito virtual con identificador nodeId --]]
 function getPanel(roomId)
   toolKit:log(DEBUG, 'roomId: '..roomId)
   -- obtener paneles de temperatura
@@ -125,8 +125,10 @@ function getPanel(roomId)
   return false
 end
 
--- getTargetLevel(panel)
---(table) panel: tabla que representa un panel de temperatura
+--[[getTargetLevel(panel)
+    (table) panel: tabla que representa un panel de temperatura
+  devuelve la temperatura de consigna desde panel indicado
+--]]
 function getTargetLevel(panel)
   -- obtener propiedades del panel
   local properties = panel.properties
@@ -184,13 +186,6 @@ function getTargetLevel(panel)
   return temperatura
 end
 
--- setProperty(property, value)
--- (string) property: nombre de la propiedad a actualizar
--- (various) value: valor a asignar a ala propiedad
-function setProperty(property, value)
-  return true
-end
-
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
 toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
@@ -199,7 +194,7 @@ toolKit:log(INFO, release['name']..
 fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
  '00.00ºC / 00.00ºC _')
 fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", '00h 00m')
-fibaro:call(_selfId, "setProperty", "ui.separador.value", '')
+fibaro:call(_selfId, "setProperty", "ui.modeLabel.value", '')
 fibaro:call(_selfId, "setProperty", "ui.probeLabel.value", '🔧')
 fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value", '🔧')
 -- inicializar dispositivo
@@ -243,9 +238,10 @@ while true do
   end
 
   --[[temperarura de consigna]]
-  -- comparar timestamp con os.time()
-  if termostatoVirtual.timestamp < os.time() then
-    -- si es menor tomar temperatura del panel
+  -- comparar timestamp con os.time() y comprobar mode
+  if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.mode ~= 0
+   then
+    -- si es menor y status no es OFF, tomar temperatura del panel
     local targetLevel = getTargetLevel(panel)
     local onOff = ' _'
     toolKit:log(INFO, 'Temperatura consigna: '..targetLevel..'ºC')
@@ -265,28 +261,46 @@ while true do
   end
 
   --[[tiempo de protección]]
-  local shadowTime = termostatoVirtual.timestamp - os.time()
-  if shadowTime <= 0 then shadowTime = 0 else shadowTime = shadowTime / 60 end
-  local minText = {}; local timeLabel = '06h 00m'
-  minText[0]   = '00h 00m'; minText[15]  = '00h 15m'; minText[30]  = '00h 30m'
-  minText[45]  = '00h 45m'; minText[60]  = '01h 00m'; minText[75]  = '01h 15m'
-  minText[90]  = '01h 30m'; minText[105] = '01h 45m'; minText[120] = '02h 00m'
-  minText[135] = '02h 15m'; minText[150] = '02h 30m'; minText[165] = '02h 45m'
-  minText[180] = '03h 00m'; minText[195] = '03h 15m'; minText[210] = '03h 30m'
-  minText[225] = '03h 45m'; minText[240] = '04h 00m'; minText[255] = '04h 15m'
-  minText[270] = '04h 30m'; minText[285] = '04h 45m'; minText[300] = '05h 00m'
-  minText[315] = '05h 15m'; minText[330] = '05h 30m'; minText[345] = '05h 45m'
-  minText[360] = '06h 00m'
-  for value = 360, 0, -15 do
-    if shadowTime <= value then
-      timeLabel = minText[value]
+  -- si el modo es no es OFF
+  if termostatoVirtual.mode ~= 0 then
+    local shadowTime = termostatoVirtual.timestamp - os.time()
+    if shadowTime <= 0 then
+      shadowTime = 0
+      -- actualizar estado del dispositivo
+      termostatoVirtual.mode = 1
     else
-      break
+      shadowTime = shadowTime / 60
+      -- actualizar estado del dispositivo
+      termostatoVirtual.mode = 2
     end
+    -- actualizar dispositivo
+    fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+    -- actualizar etiqueda de modo de funcionamiento "mode""
+    toolKit:log(DEBUG, 'Modo: '..mode[termostatoVirtual.mode])
+    fibaro:call(_selfId, "setProperty", "ui.modeLabel.value",
+     mode[termostatoVirtual.mode])
+     -- actualizar etiqueta de tiempo
+    local minText = {}; local timeLabel = '06h 00m'
+    minText[0]   = '00h 00m'; minText[15]  = '00h 15m'; minText[30]  = '00h 30m'
+    minText[45]  = '00h 45m'; minText[60]  = '01h 00m'; minText[75]  = '01h 15m'
+    minText[90]  = '01h 30m'; minText[105] = '01h 45m'; minText[120] = '02h 00m'
+    minText[135] = '02h 15m'; minText[150] = '02h 30m'; minText[165] = '02h 45m'
+    minText[180] = '03h 00m'; minText[195] = '03h 15m'; minText[210] = '03h 30m'
+    minText[225] = '03h 45m'; minText[240] = '04h 00m'; minText[255] = '04h 15m'
+    minText[270] = '04h 30m'; minText[285] = '04h 45m'; minText[300] = '05h 00m'
+    minText[315] = '05h 15m'; minText[330] = '05h 30m'; minText[345] = '05h 45m'
+    minText[360] = '06h 00m'
+    for value = 360, 0, -15 do
+      if shadowTime <= value then
+        timeLabel = minText[value]
+      else
+        break
+      end
+    end
+    -- actualizar etiqueta de tiempo
+    fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
   end
-  -- actualizar etiqueta de tiempo
-  fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
 
-  fibaro:sleep(10000)
+  fibaro:sleep(1000)
 end
---🌛 🔧  🔥
+--🌛 🔧  🔥  📛  🔘
