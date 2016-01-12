@@ -426,12 +426,22 @@ while true do
     toolKit:log(INFO, 'E='..Err..', P='..P..', I='..I..', D='..D..', S='..Salida)
     -- ajustar tiempo de ciclo y activar calefacción si es preciso
     actuador, cicloStamp = putCalefaccion(Salida, FactorEscala, tiempoCiclo)
-    -- informar de actuación u tiempo
+    -- informar de actuación y tiempo
+    local statusString
     if actuador then
-      toolKit:log(INFO, 'On '..cicloStamp-os.time()..'s.')
+      statusString = 'On'
     else
-      toolKit:log(INFO, 'Off '..cicloStamp-os.time()..'s.')
+      statusString = 'Off'
     end
+    toolKit:log(INFO, statusString..' '..cicloStamp-os.time()..'s.')
+    -- Analizar
+    if not thingspeak then
+      thingspeak = Net.FHttp("api.thingspeak.com")
+    end
+    local payload = "key=CQCLQRAU070GEOYY&field1="..Err.."&field2="..P
+     .. "&field3="..I.."&field4="..D.."&field5="..Salida
+    .."&field6="..statusString.. "&field7="..cicloStamp-os.time()
+    local response, status, errorCode = thingspeak:POST('/update', payload)
     -- operar sobre el actuador
     setActuador(termostatoVirtual.actuatorId, actuador)
     -- actualizar dispositivo
