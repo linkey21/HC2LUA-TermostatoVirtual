@@ -5,11 +5,11 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-iconoId = 1059
-local kP = 200 -- Proporcional
-local kI = 10 -- Integral
-local kD = 20 -- Derivativo
-local Intervalo = 10 -- intervalo de medición en segundos
+local iconoId = 1059
+local kP = 200  -- Proporcional
+local kI = 10   -- Integral
+local kD = 20   -- Derivativo
+local intervalo = 1 -- intervalo de medición en segundos
 -- tiempo por ciclo en minutos: 10 minutos (6 ciclos/h) etc...
 local tiempoCiclo = 1
 local Histeresis = 0.2 -- histeresis en grados
@@ -202,10 +202,11 @@ function Inicializar()
 	local Err = 0 -- Error: diferencia entre consigna y valor actual
 	local UltimoErr = 0 -- Error en la iteracion anterior
 	local SumErr = 0 -- Suma error calculado
-	local Actuador = 0 -- Actuador on/off
+	local actuador = 0 -- Actuador on/off
 	local Salida = 0 -- Salida: Tiempo a conectar la calefaccion
-	return tiempoCiclo*60, FactorEscala, Actual, Err, UltimoErr,
-   SumErr, Actuador,Salida
+  local cicloStamp = os.time() -- timestap hasta próximo ciclo
+	return tiempoCiclo * 60, FactorEscala, Actual, Err, UltimoErr,
+   SumErr, actuador,Salida, cicloStamp
 end
 --[[
 CalculoError(Actual, Consigna)
@@ -247,7 +248,7 @@ AntiWindUp(SumErr, Err, Histeresis)
 ------------------------------------------------------------------------------]]
 function AntiWindUp(SumErr, Err, Histeresis)
 	-- si el error está fuera del rango de histeresis, acumular error
-	if math.abs(Err) < Histeresis then
+	if math.abs(Err) > Histeresis then
 		return SumErr + Err
 	end
 	-- si está dentro del rango de histeresis, anti WindUp
@@ -255,35 +256,33 @@ function AntiWindUp(SumErr, Err, Histeresis)
 end
 
 --[[
-putCalefaccion(Salida,ActuadorID,FactorEsc
+putCalefaccion(Salida, FactorEscala, tiempoCiclo)
 ------------------------------------------------------------------------------]]
-function putCalefaccion(Salida, actuatorId, FactorEscala, tiempoCiclo,
-  termostatoVirtual)
-  termostatoVirtual.oN = false
-  local nodeId = termostatoVirtual.nodeId
+function putCalefaccion(Salida, FactorEscala, tiempoCiclo)
+  -- ajusar la salida máxima al tiempo de ciclo
+  if Salida > tiempoCiclo then Salida = tiempoCiclo end
+  if Salida < 0 - tiempoCiclo then Salida = 0 - tiempoCiclo end
+  -- ajustar factor de escala
+  --Salida = Salida * FactorEscala
   -- Tiempo de calentamiento debe ser positivo para encender
 	if (Salida > 0)  then
-		if Salida > 300 then Salida = 300 end
-		Salida = Salida*FactorEscala
-    -- Tiempo de activación calefaccion
-		toolKit:log(INFO, "Activando calefacción durante "..Salida.."segs.")
-    -- si el actuador no está en modo mantenimiento encender
-    if actuatorId and actuatorId ~= 0 then
+    return true, os.time() + Salida
+	end
+  return false, os.time() + math.abs(Salida)
+end
+
+--[[setActuador(termostatoVirtual, actuatorId, actuador)
+  --]]
+function setActuador(actuatorId, actuador)
+  -- si el actuador no está en modo mantenimiento
+  if actuatorId and actuatorId ~= 0 then
+    -- si hay que encender encender
+    if actuador then
       fibaro:call(actuatorId, 'turnOn')
-    end
-    termostatoVirtual.oN = true
-    tiempoCiclo = os.time() + Salida
-	else
-    toolKit:log(INFO, "No requiere calentamiento")
-    -- si el actuador no está en modo mantenimiento apagar
-    if actuatorId and actuatorId ~= 0 then
+    else -- si no apagar
       fibaro:call(actuatorId, 'turnOff')
     end
-    tiempoCiclo = os.time() + tiempoCiclo
   end
-  -- actualizar dispositivo
-  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-  return tiempoCiclo
 end
 
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
@@ -291,9 +290,8 @@ toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 
 -- Inicializar Variables
-local tiempoCiclo,FactorEscala,Actual,Err,UltimoErr,SumErr,Actuador,Salida =
- Inicializar()
-
+local tiempoCiclo, FactorEscala, Actual, Err, UltimoErr, SumErr, actuador,
+ Salida, cicloStamp = Inicializar()
 -- inicializar etiquetas --
 fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
  '00.00ºC / 00.00ºC _')
@@ -301,13 +299,11 @@ fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", '00h 00m')
 fibaro:call(_selfId, "setProperty", "ui.modeLabel.value", '')
 fibaro:call(_selfId, "setProperty", "ui.probeLabel.value", '0-🔧')
 fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value", '0-🔧')
-
 -- inicializar dispositivo
 resetDevice(_selfId)
 
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
-local cicloStamp = os.time() + tiempoCiclo
 while true do
   -- recuperar dispositivo
   local termostatoVirtual = getDevice(_selfId)
@@ -409,32 +405,41 @@ while true do
 
   --[[cálculo PID]]
   -- cada tiempo de ciclo calcular PID
-  if os.time() > cicloStamp then
+  if os.time() >= cicloStamp then
     -- leer temperatura de la sonda
     Actual = termostatoVirtual.value
     -- temperatura de consigna
     Consigna = termostatoVirtual.targetLevel
     -- actuador
     local actuatorId = termostatoVirtual.actuatorId
+    -- calcular error
     Err = CalculoError(Actual, Consigna)
-    toolKit:log(INFO, 'SumErr: '..SumErr.." Err: "..Err..' Histeresis: '
-     ..Histeresis)
+    -- acumular error
     SumErr = AntiWindUp(SumErr, Err, Histeresis)
+    -- calcular proporcional, integral y derivativo
     P = CalculoProporcional(Err, kP)
-    toolKit:log(INFO, "P="..P)
     I = CalculoIntegral(SumErr, kI)
-    toolKit:log(INFO, "I="..I)
     D = CalculoDerivativo(Err, UltimoErr, kD)
-    toolKit:log(INFO, "D="..D)
+    -- actualizar último error
+    UltimoErr = Err
     Salida = P + I + D -- Accion total = P+I+D
-    Integral = 0 --reset integral WindUp
-    UltimoErr = Err -- Actualizo ultimo error
+    toolKit:log(INFO, 'E='..Err..', P='..P..', I='..I..', D='..D..', S='..Salida)
     -- ajustar tiempo de ciclo y activar calefacción si es preciso
-    cicloStamp = putCalefaccion(Salida, actuatorId, FactorEscala, tiempoCiclo,
-    termostatoVirtual)
-    Salida = 0 -- reset de la salida
-    toolKit:log(INFO, 'tiempoCiclo: '..cicloStamp-os.time())
+    actuador, cicloStamp = putCalefaccion(Salida, FactorEscala, tiempoCiclo)
+    -- informar de actuación u tiempo
+    if actuador then
+      toolKit:log(INFO, 'On '..cicloStamp-os.time()..'s.')
+    else
+      toolKit:log(INFO, 'Off '..cicloStamp-os.time()..'s.')
+    end
+    -- operar sobre el actuador
+    setActuador(termostatoVirtual.actuatorId, actuador)
+    -- actualizar dispositivo
+    termostatoVirtual.oN = actuador
+    fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+    -- resetear salida
+    Salida = 0
  end
- fibaro:sleep(1000)
+ fibaro:sleep(intervalo*1000)
 end
 --🌛 🔧  🔥  📛  🔘
