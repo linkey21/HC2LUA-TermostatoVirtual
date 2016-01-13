@@ -1,0 +1,217 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf340
+{\fonttbl\f0\fswiss\fcharset0 ArialMT;\f1\fnil\fcharset0 Verdana;\f2\froman\fcharset0 TimesNewRomanPSMT;
+}
+{\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red255\green0\blue0;\red15\green112\blue1;
+\red0\green0\blue0;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww31620\viewh20820\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf2 \expnd0\expndtw0\kerning0
+CQCLQRAU070GEOYY\
+\
+- Cuando el termostato se reinicia (por ejemplo si se reinicia el HC2) se queda sin sonda de temperatura y sin actuador por defecto.\
+Esto implica que te quedas sin calefacci\'f3n. Creo que una vez lo programas, debe formar parte de la variable global para recuperar su estado.\
+\cf3 Correcto, el problema se porque el dispositivo ahora se reincida cade vez que se reincida de verdad(por ejemplo se grava), habr\'eda que lo implementarlo en el pr\'f3ximo release y poner un bot\'f3n reset.\
+El problema es refrescar el estado visual en el arranque, me va a costar un poco m\'e1s.\cf2 \
+\
+- Bot\'f3n PID: \'bfQu\'e9 hace?\
+\cf3 No hace nada, solo puse el c\'f3digo de la parter PID en el para tenerlo a mano antes de integrarlo., Se podr\'eda ocultar o usar para el bot\'f3n reset.\cf2 \
+\
+- Funci\'f3n Inicializa: En la funci\'f3n inicializar he puesto un valor fijo de Factor de Escala=1.\
+Esto lo puse en su momento por si necesitaba hacer alg\'fan ajuste. Vamos a partir de 1.\
+El tiempo de ciclo m\'ednimo debe ser de 5 min. Menos es una locura porque la inercia t\'e9rmica de cualquier sistema de calefacci\'f3n es importante.\
+Estaba comentada esa l\'ednea no s\'e9 por qu\'e9.\
+if tiempoCiclo < 5 then tiempoCiclo = 5 end -- ciclo m\'ednimo es de 5 min\
+local FactorEscala = 1;\
+\
+- Funci\'f3n putCalefacci\'f3n: He cambiado lo siguiente:\
+\'a0 -- Tiempo de calentamiento debe ser positivo para encender\
+	if (Salida > 0) \'a0then\
+		if Salida > tiempoCiclo*60 then Salida = tiempoCiclo*60 end\
+		Salida = Salida*FactorEscala\
+Antes el valor l\'edmite era 300.\
+Lo l\'f3gico es que el valor l\'edmite sea el propio Ciclo.\
+Es decir, si el PID me dice que caliente 15 min y mi ciclo es de 10 min, limito la salida a 10 min y vuelvo a calcular el PID para ver si caliento otros 5 min, m\'e1s o menos tiempo.\
+\cf3 Esto ya lo hab\'eda cambiado ahora putCalefacci\'f3n solo calcula el tiempo y si hay que encender o apagar\cf2 \
+\cf3 --[[\
+putCalefaccion(Salida, FactorEscala, tiempoCiclo)\
+------------------------------------------------------------------------------]]\
+function putCalefaccion(Salida, FactorEscala, tiempoCiclo)\
+  -- ajusar la salida m\'e1xima al tiempo de ciclo\
+  if Salida > tiempoCiclo then Salida = tiempoCiclo end\
+  if Salida < (0 - tiempoCiclo) then Salida = (0 - tiempoCiclo) end\
+  -- ajustar factor de escala\
+  Salida = Salida * FactorEscala\
+  -- Tiempo de calentamiento debe ser positivo para encender\
+	if (Salida > 0)  then\
+    return true, os.time() + Salida\
+	end\
+  return false, os.time() + math.abs(Salida)\
+end\cf2 \
+\
+\
+- Ajustes del sintonizado del PID: He cambiado lo siguiente\
+local kP = 200 -- Proporcional\
+local kI = 20 -- Integral\
+local kD = 20 -- Derivativo\
+--local Intervalo = 10 -- intervalo de medici\'f3n en segundos\
+-- tiempo por ciclo en minutos: 10 minutos (6 ciclos/h) etc...\
+local tiempoCiclo = 10\
+local Histeresis = 0.5 -- histeresis en grados\
+\cf3 He implementado la hit\'e9resis\
+--[[\
+AntiWindUp(SumErr, Err, Histeresis)\
+------------------------------------------------------------------------------]]\
+function AntiWindUp(SumErr, Err, Histeresis)\
+	-- si el error est\'e1 fuera del rango de histeresis, acumular error\
+	if math.abs(Err) > Histeresis then\
+		return SumErr + Err\
+	end\
+	-- si est\'e1 dentro del rango de histeresis, anti WindUp\
+	return 0\
+end\cf2 \
+Intervalo no hace nada. Lo he comentado.\
+\cf3 Ahora intervalo me sirve como intervalo de refresco general del termostato.\
+Va dando vueltas refrescando los valores, experto el PID que lo hace cada ciclo (o no exactamente te lo explico  mas abajo)\
+\cf2 \
+He subido un poco mas la acci\'f3n integral viendo como funciona en mi casa. Ya haremos un ajuste fino.\
+\cf3 Estos valores se calculan de forma emp\'edrica?. vamos probando hasta optimizar o hay otro modo?.\cf2 \
+Tiempo de ciclo en mi caso es de 10 min por el tipo de calefacci\'f3n.\'a0\
+He subido un poco las hist\'e9resis para hacer pruebas.\
+\
+Sigo con las pruebas y hay algo anormal en el bucle while. Me explico con este log:\
+\
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:18:10:\'a0TermostatoVirtual.mainLoop ver 1.0.0\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:28:11:\'a0SumErr: 0 Err: 0.2 Histeresis: 0.5\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:28:11:\'a0P=40\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:28:11:\'a0I=4\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:28:11:\'a0D=4\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:28:11:\'a0Activando calefacci\'f3n durante 48segs.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:28:11:\'a0tiempoCiclo: 48\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:29:00:\'a0SumErr: 0.2 Err: 0.2 Histeresis: 0.5\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:29:00:\'a0P=40\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:29:00:\'a0I=8\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:29:00:\'a0D=0\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:29:00:\'a0Activando calefacci\'f3n durante 48segs.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf2 [DEBUG] 22:29:00:\'a0tiempoCiclo: 48\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf4 \
+\pard\pardeftab720\partightenfactor0
+\cf2 La primera iteraci\'f3n es correcta... Se activa el c\'e1lculo a los 10 min. Lo primero que no deber\'eda ocurrir es que calentase al ser el error menor a la hist\'e9resis. Esto a\'fan no est\'e1 implementado y es normal que ocurra. Pero lo que no es normal es la segunda iteracion... ya que si obviamos el tema hist\'e9resis, deber\'eda calentar 48 segundos para despu\'e9s apagarse durante 9 min y 12 segundos, y dentro de 10 min hacer una nueva iteracci\'f3n. \'bfMe explico? Lo de 10 min es el tema de los ciclos/hora (6 en mi caso).\
+\cf3 Esto tiene que ver con mi forma de ver el tema, lo que hab\'eda entendido yo de como deber\'eda funcionar. Mi idea era:\
+\
+ Inicialmente se calcula el PID que como todo est\'e1 a 0 devuelve APAGADO y el tiempo correspondiente a un ciclo\'85 ->\
+ Esperan un ciclo, pasado este tiempo se calcula de nuevo la Salida y se realiza la orden resultante ON/OFF y el tiempo resultado del c\'e1lculo es el que se utiliza rara esperar hasta el pr\'f3ximo c\'e1lculo, que\'85\
+ Si el sistema PID es correcto seguir\'e1 el mismo estado (ON/OFF) o cambiar\'e1 y resultar\'e1 el tiempo de una nueva espera para volver a calcular.\
+ Si no cambia el estado no se enviar\'eda anda al actuador.\
+<-\
+\
+Puede parecer descabellado, pero pi\'e9nsalo a veer que te parece, creo que optimizar\'eda el resultado.\
+\
+\cf5 - bloquear botones de temperatura y tiempo cuando esta OFF\cf3 \
+Parece buena idea\
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 Hist\'e9resis: Ok, queda implementado. Esa funci\'f3n va a cambiar mucho, de modo que tampoco me preocupa demasiado.\
+\
+Par\'e1metros Td,Ti, K: Vamos a ver... te cuento... La forma de hacer esto bien es modelizar mediante ecuaciones el sistema que tenemos. Inicialmente lo hacemos en el dominio del tiempo, despu\'e9s aplicamos la transformada de Laplace y hallamos la funci\'f3n de transferencia que nos ayudar\'e1 a encontrar los ceros y polos del sistema. En base a eso se aplica toda una teor\'eda de c\'e1lculo. Ahora bien, por qu\'e9 suelto este rollo... porque esto no se hace normalmente salvo honrosas excepciones. Si haces esto funciona perfecto, pero se requieren unos conocimientos del sistema a nivel de ingenier\'eda y unos conocimientos matem\'e1ticos que como comprender\'e1s no son habituales. \'bfC\'f3mo se soluciona? Mediante dos t\'e9cnicas:\
+\
+- Forma emp\'edrica: La m\'e1s utilizada en la industria cuando ya has tocado muchos PID.\
+- Mediante c\'e1lculo aproximado de autosintonizado mediante una serie de teoremas de control. Requieren de analizar como evoluciona el sistema ante una determinada entrada, es decir, como evoluciona la temperatura ante un encendido prolongado de la calefacci\'f3n. Ya llegaremos a ello no te preocupes.\
+\
+La K afecta directamente al error, es decir, a m\'e1s error m\'e1s acci\'f3n de control. Se incluye para que cuando est\'e1s muy lejos de la consigna tengas una acci\'f3n de control potente. Si te pasas habitualmente de la consigna muy por encima... necesitamos bajar K... si tardas mucho en llegar a la consigna debes aumentar K. Td est\'e1 relacionado con la velocidad con la que el error var\'eda, es decir, su derivada frente al tiempo. Su funci\'f3n es anticipar el control... es decir... si nos aproximamos muy deprisa a la consigna tiene como misi\'f3n moderar la salida para no pasarnos... En el caso de Ti tiene como objeto reducir el error a cero, es decir, en r\'e9gimen estacionario poder reducir el error a cero. Se trata de una acci\'f3n integral.\'a0\
+\
+De momento nos quedamos con la forma emp\'edrica y ya implementaremos el autosintonizado. En la industria se suele emplear de forma burda el autosintonizado y despu\'e9s se hace un ajuste fino de forma emp\'edrica.\
+\
+Por \'faltimo... Ciclo de trabajo. El sistema que propones no funcionar\'e1 nunca bien. Me explico... toda la teor\'eda de control de sistemas din\'e1micos est\'e1 dise\'f1ada/probada y desarrollada matem\'e1ticamente para una duraci\'f3n de un periodo de muestreo (ciclo) constante. Las f\'f3rmulas que aplicaremos son las que emplea la industria en cualquier proceso que requiere un control del tipo que sea, bien sea un termostato, un control de nivel de un dep\'f3sito o el control de un cilindro en la sonda Pathfinder de la NASA. La forma de trabajar el termostato debe ser la siguiente: Establecer el n\'famero de ciclos hora en funci\'f3n de la inercia t\'e9rmica del sistema de calefacci\'f3n. Supongamos que sea de 6 ciclos/hora. Eso supone que cada 10 min se debe recalcular. En las primeras iteraciones la salida ser\'e1 de encender la calefacci\'f3n 10 min o m\'e1s. Lo limitamos a 10 min. Cuando la casa se vaya calentando el regulador PID ir\'e1 precisamente modulando la salida (tiempo de encendido) para aproximarnos a la temperatura de consigna de la forma m\'e1s \'f3ptima.\
+\cf3 El sistema PID efectivamente ir\'e1 modulando la salida (tiempo de encendido), pero me cuesta entender porque esperar apagados el resto del ciclo y no usar el sistema PID para calcular el siguiente (tiempo de apagado o encendido), si tu lo dices me lo creo, aunque me gustar\'eda llegar a entenderlo. (quiz\'e1 alg\'fan d\'eda).\cf2 \
+ Qu\'e9 es \'f3ptimo lo decidiremos nosotros. Por tanto tendremos salidas donde nos pida que encendamos la calefacci\'f3n 3 min... y el resto del tiempo debemos esperar para recalcular nuevamente. No podemos recalcular nuevamente hasta cumplido el ciclo de 10 min. Si recalculas vas a llegar igualmente a la consigna, pero de forma menos eficiente. Est\'e1 demostrado. Tendr\'e1s much\'edsimos problemas para acercarte a la consigna de forma fina.\
+\
+Se que no es f\'e1cil de digerir, sobre todo la teor\'eda, pero piensa que se trata de todo un mundo que a los ing. industriales nos ocupa varias asignaturas en segundo, tercero, cuarto y quinto curso. Al menos cuando yo estudiaba. Vaya chapa te he dado.\
+\cf3 De chapa nada, me gustar\'eda, si a ti no te importa y tienes tiempo, que seg\'fan avanzamos me fueras ampliado sobre el teme, ya te ir\'e9 preguntando si ves que soy muy pesado me vas parando.\cf2 \
+\
+Vamos a implementar lo b\'e1sico y despu\'e9s le vamos a\'f1adiendo funcionalidades y ecuaciones m\'e1s complejas si te parece.\
+\cf3 OK,ya he implementado:\
+ \
+- Que guarde los valores para cuando se reincide los restaure.\
+- He puesto el reset en el bot\'f3n PID.\
+- Implementado el factor de escala (para pruebas) valor actual = 1\
+- El valor de tiempo se limita por el valor del ciclo\
+- He puesto los nuevos ajuste de sintonizado PID\
+- Implementado thingspeakKey en la l\'ednea 24 (local thingspeakKey = \'91\'92)\
+	Field 1 Error\
+	Field 2 Proporcional\
+	Field 3 Integral\
+	Field 4 Diferencial\
+	Field 5 Salida\
+	Field 6 Estado\
+	Field 7 Tiempo\cf2 \
+\
+Ma\'f1ana me pongo a arreglar el ciclo para que encienda el tiempo de salida y espere el resto de ciclo apagado.\
+\
+\
+}

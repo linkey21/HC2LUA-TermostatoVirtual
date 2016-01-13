@@ -7,12 +7,12 @@
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local iconoId = 1059
 local kP = 200  -- Proporcional
-local kI = 10   -- Integral
+local kI = 20   -- Integral
 local kD = 20   -- Derivativo
 local intervalo = 1 -- intervalo de medición en segundos
 -- tiempo por ciclo en minutos: 10 minutos (6 ciclos/h) etc...
 local tiempoCiclo = 1
-local Histeresis = 0.2 -- histeresis en grados
+local Histeresis = 0.5 -- histeresis en grados
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -21,6 +21,7 @@ local Histeresis = 0.2 -- histeresis en grados
 local release = {name='TermostatoVirtual.mainLoop', ver=1, mayor=0, minor=0}
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
+local thingspeakKey = ''
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -71,22 +72,10 @@ function resetDevice(nodeId)
     end
   end
   -- crear tabla vacía para dispositivo
-  --[['{"nodeId":0, "deviceIcon":0, "targetLevel":0, "timestamp":0,
-   "probeId":0, "value":0 , "actuatorId":0, "zoneId":0, "panelId":0}']]
-  local termostatoVirtual = {}
-  -- almacenar el id del VD para saber que ha sido iniciada
-  termostatoVirtual['nodeId'] = nodeId
-  termostatoVirtual['panelId'] = 0
-  termostatoVirtual['probeId'] = 0
-  termostatoVirtual['targetLevel'] = 0
-  termostatoVirtual['value'] = 0
-  termostatoVirtual['mode'] = 1 -- mode de funcionamiento por defecto AUTO
-  termostatoVirtual['timestamp'] = os.time()
-
+  local termostatoVirtual = {nodeId = nodeId, panelId = 0, probeId = 0,
+  targetLevel = 0,   value = 0, mode = 1, timestamp = os.time()}
   -- guardar la tabla en la variable global
   fibaro:setGlobal('dev'..nodeId, json.encode(termostatoVirtual))
-
-  -- devolver el dispositivo
   return termostatoVirtual
 end
 
@@ -96,10 +85,13 @@ end
 function getDevice(nodeId)
   -- si  exite la variable global recuperar dispositivo
   local device = isVariable('dev'..nodeId)
-  if device then
+  if device and device ~= 'NaN' and device ~= 0 and device ~= '' then
     device = json.decode(device)
     -- si esta iniciado devolver el dispositivo
-    if device.nodeId then return device end
+    if device.nodeId then
+      toolKit:log(DEBUG, 'nodeId: '..device.nodeId)
+      return device
+     end
   end
   -- en cualquier otro caso iniciarlo y devolverlo
   return resetDevice(nodeId)
@@ -197,7 +189,7 @@ end
   Inicializa variables --]]
 function Inicializar()
 	--if tiempoCiclo < 5 then tiempoCiclo = 5 end -- ciclo mínimo es de 5 min
-	local FactorEscala = tiempoCiclo / 5
+	local FactorEscala = 1
 	local Actual = 0 -- Actual temperatura
 	local Err = 0 -- Error: diferencia entre consigna y valor actual
 	local UltimoErr = 0 -- Error en la iteracion anterior
@@ -261,9 +253,9 @@ putCalefaccion(Salida, FactorEscala, tiempoCiclo)
 function putCalefaccion(Salida, FactorEscala, tiempoCiclo)
   -- ajusar la salida máxima al tiempo de ciclo
   if Salida > tiempoCiclo then Salida = tiempoCiclo end
-  if Salida < 0 - tiempoCiclo then Salida = 0 - tiempoCiclo end
+  if Salida < (0 - tiempoCiclo) then Salida = (0 - tiempoCiclo) end
   -- ajustar factor de escala
-  --Salida = Salida * FactorEscala
+  Salida = Salida * FactorEscala
   -- Tiempo de calentamiento debe ser positivo para encender
 	if (Salida > 0)  then
     return true, os.time() + Salida
@@ -292,15 +284,6 @@ toolKit:log(INFO, release['name']..
 -- Inicializar Variables
 local tiempoCiclo, FactorEscala, Actual, Err, UltimoErr, SumErr, actuador,
  Salida, cicloStamp = Inicializar()
--- inicializar etiquetas --
-fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
- '00.00ºC / 00.00ºC _')
-fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", '00h 00m')
-fibaro:call(_selfId, "setProperty", "ui.modeLabel.value", '')
-fibaro:call(_selfId, "setProperty", "ui.probeLabel.value", '0-🔧')
-fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value", '0-🔧')
--- inicializar dispositivo
-resetDevice(_selfId)
 
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
@@ -308,12 +291,11 @@ while true do
   -- recuperar dispositivo
   local termostatoVirtual = getDevice(_selfId)
   toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
-
-  -- refrescar icono
+  -- icono
   fibaro:call(_selfId, 'setProperty', "currentIcon", iconoId)
 
   --[[Panel]]
-  -- obtener el  panel
+  -- obtener el panel
   local panel = getPanel(fibaro:getRoomID(_selfId))
   if panel then
     toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
@@ -438,7 +420,7 @@ while true do
     if not thingspeak then
       thingspeak = Net.FHttp("api.thingspeak.com")
     end
-    local payload = "key=CQCLQRAU070GEOYY&field1="..Err.."&field2="..P
+    local payload = "key="..thingspeakKey.."&field1="..Err.."&field2="..P
      .. "&field3="..I.."&field4="..D.."&field5="..Salida
     .."&field6="..statusString.. "&field7="..cicloStamp-os.time()
     local response, status, errorCode = thingspeak:POST('/update', payload)
@@ -452,4 +434,4 @@ while true do
  end
  fibaro:sleep(intervalo*1000)
 end
---🌛 🔧  🔥  📛  🔘
+--🌛 🔧  🔥  🔘
