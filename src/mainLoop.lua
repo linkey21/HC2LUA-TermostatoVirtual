@@ -247,8 +247,10 @@ function AntiWindUp(SumErr, Err, Histeresis)
 	return 0
 end
 
---[[
-putCalefaccion(Salida, FactorEscala, tiempoCiclo)
+--[[putCalefaccion(Salida, FactorEscala, tiempoCiclo)
+  () Salida:
+  () FactorEscala:
+  () tiempoCiclo:
 ------------------------------------------------------------------------------]]
 function putCalefaccion(Salida, FactorEscala, tiempoCiclo)
   -- ajusar la salida máxima al tiempo de ciclo
@@ -387,7 +389,7 @@ while true do
 
   --[[cálculo PID]]
   -- cada tiempo de ciclo calcular PID
-  if os.time() >= cicloStamp then
+  if os.time() >= cicloStamp then -- >= os.time() + ciclo
     -- leer temperatura de la sonda
     Actual = termostatoVirtual.value
     -- temperatura de consigna
@@ -405,7 +407,7 @@ while true do
     -- actualizar último error
     UltimoErr = Err
     Salida = P + I + D -- Accion total = P+I+D
-    toolKit:log(INFO, 'E='..Err..', P='..P..', I='..I..', D='..D..', S='..Salida)
+    toolKit:log(INFO, 'E='..Err..', P='..P..', I='..I..', D='..D..',S='..Salida)
     -- ajustar tiempo de ciclo y activar calefacción si es preciso
     actuador, cicloStamp = putCalefaccion(Salida, FactorEscala, tiempoCiclo)
     -- informar de actuación y tiempo
@@ -432,6 +434,11 @@ while true do
     -- resetear salida
     Salida = 0
  end
+ -- hay que apagar?
+ if os.time() >= offStamp then
+   -- apagar
+ end
+
  fibaro:sleep(intervalo*1000)
 end
 --🌛 🔧  🔥  🔘
