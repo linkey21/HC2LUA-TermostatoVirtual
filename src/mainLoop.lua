@@ -6,12 +6,12 @@
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local iconoId = 1059
-local kP = 200  -- Proporcional
+local kP = 400 -- Proporcional
 local kI = 20   -- Integral
 local kD = 20   -- Derivativo
 local intervalo = 1 -- intervalo de medición en segundos
 -- tiempo por ciclo en minutos: 10 minutos (6 ciclos/h) etc...
-local tiempoCiclo = 1
+local tiempoCiclo = 5
 local histeresis = 0.5 -- histeresis en grados
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
@@ -200,38 +200,38 @@ function Inicializar()
    cicloStamp, offStamp
 end
 --[[
-CalculoError(Actual, Consigna)
+calculoError(Actual, Consigna)
 	Calculo del error diferencia entre temperatura Actual y Consigna
 ------------------------------------------------------------------------------]]
-function CalculoError(currentTemp, Consigna)
+function calculoError(currentTemp, Consigna)
 	return tonumber(Consigna) - tonumber(currentTemp)
 end
 
 --[[
-CalculoProporcional(Err,kP)
+calculoProporcional(Err,kP)
 	Calculo del termino proporcional
 ------------------------------------------------------------------------------]]
-function CalculoProporcional(Err,kP)
-	P = Err*kP -- Termino proporcional
+function calculoProporcional(err, kP)
+	P = err * kP -- Termino proporcional
 	return P
 end
 
 --[[
-CalculoIntegral(acumErr, kI)
-	Calculo del termino integral
+calculoDerivativo(Err,lastErr,kD)
+	Calculo del termino derivativo
 ------------------------------------------------------------------------------]]
-function CalculoIntegral(acumErr, kI)
-	I = acumErr*kI -- Termino integral
-	return I
+function calculoDerivativo(err,lastErr,kD)
+	D = (err - lastErr) * kD -- Termino derivativo
+	return D
 end
 
 --[[
-CalculoDerivativo(Err,lastErr,kD)
-	Calculo del termino derivativo
+calculoIntegral(acumErr, kI)
+	Calculo del termino integral
 ------------------------------------------------------------------------------]]
-function CalculoDerivativo(Err,lastErr,kD)
-	D = (Err - lastErr)*kD -- Termino derivativo
-	return D
+function calculoIntegral(acumErr, kI)
+	I = acumErr * kI -- Termino integral
+	return I
 end
 
 --[[
@@ -254,19 +254,19 @@ function calculatePID(currentTemp, setPoint, acumErr, lastErr, histeresis,
    factor, tiempo)
   local newErr, result
   -- calcular error
-  newErr = CalculoError(currentTemp, setPoint)
-  -- calcular error acumulado  ajustado a histeresis
+  newErr = calculoError(currentTemp, setPoint)
+  -- calcular error acumulado ajustado a histeresis
   toolKit:log(DEBUG, acumErr..' '..newErr..' '..histeresis)
   acumErr = AntiWindUp(acumErr, newErr, histeresis)
   -- calcular proporcional, integral y derivativo
-  P = CalculoProporcional(newErr, kP)
-  I = CalculoIntegral(acumErr, kI)
-  D = CalculoDerivativo(newErr, lastErr, kD)
+  P = calculoProporcional(newErr, kP)
+  I = calculoDerivativo(newErr, lastErr, kD)
+  D = calculoIntegral(acumErr, kI)
   -- guardar error como último error
   lastErr = newErr
   -- obtener el resultado
   result = P + I + D -- Accion total = P+I+D
-  -- dajustar el resultado entro del ambito de tiempo de ciclo,
+  -- dajustar el resultado dentro del ambito de tiempo de ciclo,
   -- aplicando si procede factor de escala.
   result = adjustResult(result, factor, tiempo)
   -- informar del resultado
@@ -438,8 +438,10 @@ while true do
     onTime, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
      lastErr, histeresis, factorEscala, tiempoCiclo)
     offStamp = tonumber(os.time() + onTime)
-    -- ajustar en nuevo instante de cálculo PID
+    -- ajustar el nuevo instante de cálculo PID
     cicloStamp = os.time() + tiempoCiclo
+    -- ajuste nuevo instante de cálculo PID aplicando el tiempo de salida
+    --cicloStamp = offStamp
     toolKit:log(INFO, 'On '.. offStamp - os.time()..'s. - '..'Off '..
      cicloStamp - offStamp..'s.')
   end
