@@ -11,7 +11,7 @@ local kI = 20   -- Integral
 local kD = 20   -- Derivativo
 local intervalo = 1 -- intervalo de medición en segundos
 -- tiempo por ciclo en minutos: 10 minutos (6 ciclos/h) etc...
-local tiempoCiclo = 5
+local tiempoCiclo = 1
 local histeresis = 0.5 -- histeresis en grados
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
@@ -305,13 +305,13 @@ function setActuador(actuatorId, actuador)
   if actuatorId and actuatorId ~= 0 then
     -- comprobar estado actual
     local actuatorState = fibaro:getValue(actuatorId, 'value')
-    -- si hay que encender encender y esta apagado
-    if actuador and actuatorState == 0 then
+    -- si hay que encender y esta apagado
+    if actuador and actuatorState == '0' then
       -- encender
       fibaro:call(actuatorId, 'turnOn')
     end
     -- si hay que apagar y está encendido
-    if not actuador and actuatorState == 1 then
+    if not actuador and actuatorState == '1' then
       fibaro:call(actuatorId, 'turnOff')
     end
   end
