@@ -11,7 +11,7 @@ local kI = 20   -- Integral
 local kD = 20   -- Derivativo
 local intervalo = 1 -- intervalo de medición en segundos
 -- tiempo por ciclo en minutos: 10 minutos (6 ciclos/h) etc...
-local tiempoCiclo = 1
+local tiempoCiclo = 5
 local histeresis = 0.5 -- histeresis en grados
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
@@ -21,7 +21,7 @@ local histeresis = 0.5 -- histeresis en grados
 local release = {name='TermostatoVirtual.mainLoop', ver=1, mayor=0, minor=0}
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
-local thingspeakKey = ''
+local thingspeakKey = 'CQCLQRAU070GEOYY'
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -190,20 +190,21 @@ end
 function Inicializar()
 	--if tiempoCiclo < 5 then tiempoCiclo = 5 end -- ciclo mínimo es de 5 min
 	local factorEscala = 1
-	local Actual = 0 -- Actual temperatura
 	local Err = 0 -- Error: diferencia entre consigna y valor actual
 	local lastErr = 0 -- Error en la iteracion anterior
 	local acumErr = 0 -- Suma error calculado
   local cicloStamp = os.time() -- timestamp hasta próximo ciclo
-	return tiempoCiclo * 60, factorEscala, Actual, Err, lastErr, acumErr,
-   cicloStamp
+  -- timestamp hasta próximo apagado
+  local offStamp = os.time() + tiempoCiclo * 60
+	return (tiempoCiclo * 60) * factorEscala, factorEscala, Err, lastErr, acumErr,
+   cicloStamp, offStamp
 end
 --[[
 CalculoError(Actual, Consigna)
 	Calculo del error diferencia entre temperatura Actual y Consigna
 ------------------------------------------------------------------------------]]
-function CalculoError(Actual, Consigna)
-	return tonumber(Consigna) - tonumber(Actual)
+function CalculoError(currentTemp, Consigna)
+	return tonumber(Consigna) - tonumber(currentTemp)
 end
 
 --[[
@@ -251,34 +252,35 @@ end
 Calcula utilizando un PID el tiempo de encendido del sistema]]
 function calculatePID(currentTemp, setPoint, acumErr, lastErr, histeresis,
    factor, tiempo)
-  local err, result
+  local newErr, result
   -- calcular error
-  err = CalculoError(currentTemp, setPoint)
+  newErr = CalculoError(currentTemp, setPoint)
   -- calcular error acumulado  ajustado a histeresis
-  toolKit:log(DEBUG, acumErr..' '..err..' '..histeresis)
-  acumErr = AntiWindUp(acumErr, err, histeresis)
+  toolKit:log(DEBUG, acumErr..' '..newErr..' '..histeresis)
+  acumErr = AntiWindUp(acumErr, newErr, histeresis)
   -- calcular proporcional, integral y derivativo
-  P = CalculoProporcional(err, kP)
+  P = CalculoProporcional(newErr, kP)
   I = CalculoIntegral(acumErr, kI)
-  D = CalculoDerivativo(err, lastErr, kD)
+  D = CalculoDerivativo(newErr, lastErr, kD)
   -- guardar error como último error
-  lastErr = Err
+  lastErr = newErr
   -- obtener el resultado
   result = P + I + D -- Accion total = P+I+D
   -- dajustar el resultado entro del ambito de tiempo de ciclo,
   -- aplicando si procede factor de escala.
   result = adjustResult(result, factor, tiempo)
   -- informar del resultado
-  toolKit:log(INFO, 'E='..err..', P='..P..', I='..I..', D='..D..',S='..result)
+  toolKit:log(INFO, 'E='..newErr..', P='..P..', I='..I..', D='..D..
+   ' ,S='..result)
   -- analizar resultado
   if not thingspeak then
     thingspeak = Net.FHttp("api.thingspeak.com")
   end
-  local payload = "key="..thingspeakKey.."&field1="..err.."&field2="..P
-   .. "&field3="..I.."&field4="..D.."&field5="..result
-  .."&field6="..result.. "&field7="..result
+  local payload = "key="..thingspeakKey.."&field1="..newErr.."&field2="..P
+   .."&field3="..I.."&field4="..D.."&field5="..result
   local response, status, errorCode = thingspeak:POST('/update', payload)
   -- devolver el resultado y los nuevos error y error acumulado
+  toolKit:log(DEBUG, 'Cálculo PID: '..result..' '..lastErr..' '..acumErr)
   return result, lastErr, acumErr
 end
 
@@ -302,8 +304,7 @@ function setActuador(actuatorId, actuador)
   -- si el actuador no está en modo mantenimiento
   if actuatorId and actuatorId ~= 0 then
     -- comprobar estado actual
-    --TODO Te has quedado depurando por aqui MANOLO
-    local actuatorState = fibaro:getValue(actuatorId, value)
+    local actuatorState = fibaro:getValue(actuatorId, 'value')
     -- si hay que encender encender y esta apagado
     if actuador and actuatorState == 0 then
       -- encender
@@ -321,8 +322,8 @@ toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 
 -- Inicializar Variables
-local tiempoCiclo, factorEscala, Actual, Err, lastErr, acumErr, cicloStamp =
- Inicializar()
+local tiempoCiclo, factorEscala, Err, lastErr, acumErr, cicloStamp,
+ offStamp = Inicializar()
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 while true do
@@ -425,7 +426,6 @@ while true do
 
   --[[cálculo PID]]
   -- comprobar si se ha cumplido un ciclo para volver a calcular el PID
-  local offStamp
   if os.time() >= cicloStamp then
     -- leer temperatura de la sonda
     currentTemp = termostatoVirtual.value
@@ -433,25 +433,35 @@ while true do
     setPoint = termostatoVirtual.targetLevel
     -- ajustar el instante de apagado según el cálculo del tiempo de encendido
     -- y guardar el último error y error acumulado
-    offStamp, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
+    local onTime
+    toolKit:log(INFO, 'Último error: '..lastErr..' Error acumulado: '..acumErr)
+    onTime, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
      lastErr, histeresis, factorEscala, tiempoCiclo)
-     offStamp = os.time() + offStamp
+    offStamp = tonumber(os.time() + onTime)
     -- ajustar en nuevo instante de cálculo PID
     cicloStamp = os.time() + tiempoCiclo
+    toolKit:log(INFO, 'On '.. offStamp - os.time()..'s. - '..'Off '..
+     cicloStamp - offStamp..'s.')
   end
 
   --[[encendido apagado]]
   -- si ha pasado el tiempo de encendido
   if os.time() >= offStamp then
-    -- actualizar dispositivo a apagado
-    termostatoVirtual.oN = false
-    fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+    -- actualizar dispositivo si está encendido apagar
+    if termostatoVirtual.oN then
+      termostatoVirtual.oN = false
+      fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+      toolKit:log(INFO, 'Apagar')
+    end
     -- actuar sobre el actuador si es preciso
     setActuador(termostatoVirtual.actuatorId, false)
   else
-    -- actualizar dispositivo a encendido
-    termostatoVirtual.oN = true
-    fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+    -- actualizar dispositivo si está apagado encender
+    if not termostatoVirtual.oN then
+      termostatoVirtual.oN = true
+      fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+      toolKit:log(INFO, 'Encender')
+    end
     -- actuar sobre el actuador si es preciso
     setActuador(termostatoVirtual.actuatorId, true)
   end
