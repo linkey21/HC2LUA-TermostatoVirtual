@@ -6,13 +6,13 @@
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local iconoId = 1059
-local kP = 400 -- Proporcional
+local kP = 200 -- Proporcional
 local kI = 20   -- Integral
 local kD = 20   -- Derivativo
 local intervalo = 1 -- intervalo de medición en segundos
--- tiempo por ciclo en minutos: 10 minutos (6 ciclos/h) etc...
+-- tiempo por ciclo en segundos
 local tiempoCiclo = 5
-local histeresis = 0.5 -- histeresis en grados
+local histeresis = 0.2 -- histeresis en grados
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -194,10 +194,9 @@ function Inicializar()
 	local lastErr = 0 -- Error en la iteracion anterior
 	local acumErr = 0 -- Suma error calculado
   local cicloStamp = os.time() -- timestamp hasta próximo ciclo
-  -- timestamp hasta próximo apagado
-  local offStamp = os.time() + tiempoCiclo * 60
-	return (tiempoCiclo * 60) * factorEscala, factorEscala, Err, lastErr, acumErr,
-   cicloStamp, offStamp
+  local result = 0 -- resultado salida del PID
+	return tiempoCiclo * factorEscala, factorEscala, Err, lastErr, acumErr,
+   cicloStamp, result
 end
 --[[
 calculoError(Actual, Consigna)
@@ -237,10 +236,10 @@ end
 --[[
 AntiWindUp(acumErr, Err, Histeresis)
 ------------------------------------------------------------------------------]]
-function AntiWindUp(acumErr, Err, histeresis)
+function AntiWindUp(acumErr, err, histeresis)
 	-- si el error está fuera del rango de histeresis, acumular error
-	if math.abs(Err) > histeresis then
-		return acumErr + Err
+	if err > histeresis or err < 0 then
+		return acumErr + err
 	end
 	-- si está dentro del rango de histeresis, anti WindUp
 	return 0
@@ -260,8 +259,8 @@ function calculatePID(currentTemp, setPoint, acumErr, lastErr, histeresis,
   acumErr = AntiWindUp(acumErr, newErr, histeresis)
   -- calcular proporcional, integral y derivativo
   P = calculoProporcional(newErr, kP)
-  I = calculoDerivativo(newErr, lastErr, kD)
-  D = calculoIntegral(acumErr, kI)
+  D = calculoDerivativo(newErr, lastErr, kD)
+  I = calculoIntegral(acumErr, kI)
   -- guardar error como último error
   lastErr = newErr
   -- obtener el resultado
@@ -281,7 +280,7 @@ function calculatePID(currentTemp, setPoint, acumErr, lastErr, histeresis,
   local response, status, errorCode = thingspeak:POST('/update', payload)
   -- devolver el resultado y los nuevos error y error acumulado
   toolKit:log(DEBUG, 'Cálculo PID: '..result..' '..lastErr..' '..acumErr)
-  return result, lastErr, acumErr
+  return result, newErr, acumErr
 end
 
 --[[adjustResult(value, factorEscala, tiempoCiclo)
@@ -291,9 +290,10 @@ end
   ajusta el  resultado dentro del ambito del tiempo de ciclo y limitado por
   histéresis--]]
 function adjustResult(value, factor, tiempo)
-  -- ajusar el valor dentro del tiempo de ciclo
-  if value > tiempo then value = tiempo end
-  if value < (0 - tiempo) then value = (0 - tiempo) end
+  -- ya no hace falta ajusar el valor dentro del tiempo de ciclo
+  -- plantearse el afinado de K Ti Td
+  --if value > tiempo then value = tiempo end
+  --if value < (0 - tiempo) then value = (0 - tiempo) end
   -- devolver el valor ajustado por factor de escala
   return value * factor
 end
@@ -323,7 +323,7 @@ toolKit:log(INFO, release['name']..
 
 -- Inicializar Variables
 local tiempoCiclo, factorEscala, Err, lastErr, acumErr, cicloStamp,
- offStamp = Inicializar()
+ result = Inicializar()
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 while true do
@@ -433,22 +433,22 @@ while true do
     setPoint = termostatoVirtual.targetLevel
     -- ajustar el instante de apagado según el cálculo del tiempo de encendido
     -- y guardar el último error y error acumulado
-    local onTime
     toolKit:log(INFO, 'Último error: '..lastErr..' Error acumulado: '..acumErr)
-    onTime, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
+    result, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
      lastErr, histeresis, factorEscala, tiempoCiclo)
-    offStamp = tonumber(os.time() + onTime)
     -- ajustar el nuevo instante de cálculo PID
     cicloStamp = os.time() + tiempoCiclo
-    -- ajuste nuevo instante de cálculo PID aplicando el tiempo de salida
-    --cicloStamp = offStamp
-    toolKit:log(INFO, 'On '.. offStamp - os.time()..'s. - '..'Off '..
-     cicloStamp - offStamp..'s.')
+    -- Informar
+    if result and result <= 0 then
+      toolKit:log(INFO, 'Caldera OFF')
+    else
+      toolKit:log(INFO, 'Caldera ON')
+    end
   end
 
   --[[encendido apagado]]
-  -- si ha pasado el tiempo de encendido
-  if os.time() >= offStamp then
+  -- si la salida es negativa apagar
+  if result and result <= 0 then
     -- actualizar dispositivo si está encendido apagar
     if termostatoVirtual.oN then
       termostatoVirtual.oN = false

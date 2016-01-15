@@ -2,7 +2,7 @@
 {\fonttbl\f0\fswiss\fcharset0 ArialMT;\f1\fnil\fcharset0 Verdana;\f2\froman\fcharset0 TimesNewRomanPSMT;
 }
 {\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red255\green0\blue0;\red15\green112\blue1;
-\red0\green0\blue0;}
+}
 \paperw11900\paperh16840\margl1440\margr1440\vieww31620\viewh20820\viewkind0
 \deftab720
 \pard\pardeftab720\partightenfactor0
@@ -172,7 +172,8 @@ Sigo con las pruebas y hay algo anormal en el bucle while. Me explico con este l
 \
 Puede parecer descabellado, pero pi\'e9nsalo a veer que te parece, creo que optimizar\'eda el resultado.\
 \
-\cf5 - bloquear botones de temperatura y tiempo cuando esta OFF\cf3 \
+\pard\pardeftab720\partightenfactor0
+\cf0 - bloquear botones de temperatura y tiempo cuando esta OFF\cf3 \
 Parece buena idea\
 \
 \pard\pardeftab720\partightenfactor0
@@ -212,6 +213,14 @@ Vamos a implementar lo b\'e1sico y despu\'e9s le vamos a\'f1adiendo funcionalida
 	Field 7 Tiempo\cf2 \
 \
 Ma\'f1ana me pongo a arreglar el ciclo para que encienda el tiempo de salida y espere el resto de ciclo apagado.\
+\
+2016-01-15\
+En el sistema de calefacci\'f3n solo tenemos la facultada de empujar o dejar de empujar, si la temperatura real est\'e1 por debajo de la temperatura de consigna podemos encender la caldera.\
+En un sistema b\'e1sico se realizan muestreos regulares de la temperatura hallando la diferencia, si hay error encendemos la caldera sin no hay error se apaga y se repite el muestreo.\
+En un siguiente sistema se introduce el concepto de inercia t\'e9rmica y se puede apagar la caldera antes de que se llegue a la consigna.\
+En un sistema PID se optimizar\'eda el momento en el que se apaga la caldera alimentando al propio PID con el valor de la Salida\
+Si la salida no para de aumentar es que no se est\'e1 consiguiendo la temperatura y habr\'e1 que suponer que cuesta mucho y si disminuye cuesta menos\'85\
+\
 \
 \
 }
