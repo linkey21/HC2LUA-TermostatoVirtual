@@ -6,13 +6,12 @@
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local iconoId = 1059
-local kP = 200 -- Proporcional
-local kI = 20   -- Integral
-local kD = 20   -- Derivativo
-local intervalo = 1 -- intervalo de medición en segundos
--- tiempo por ciclo en segundos
-local tiempoCiclo = 5
-local histeresis = 0.2 -- histeresis en grados
+local intervalo = 1           -- intervalo de refersco en segundos
+local tiempoCiclo = 30        -- tiempo por ciclo en segundos
+local histeresis = 0.2        -- histeresis en grados
+local kP = 20                 -- Proporcional
+local kI = .06 * tiempoCiclo  -- Integral
+local kD = 60 / tiempoCiclo   -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -194,9 +193,10 @@ function Inicializar()
 	local lastErr = 0 -- Error en la iteracion anterior
 	local acumErr = 0 -- Suma error calculado
   local cicloStamp = os.time() -- timestamp hasta próximo ciclo
+  local changeTime = os.time() -- timestamp del último cambio de estado Caldera
   local result = 0 -- resultado salida del PID
 	return tiempoCiclo * factorEscala, factorEscala, Err, lastErr, acumErr,
-   cicloStamp, result
+   cicloStamp, changeTime, result
 end
 --[[
 calculoError(Actual, Consigna)
@@ -322,7 +322,7 @@ toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 
 -- Inicializar Variables
-local tiempoCiclo, factorEscala, Err, lastErr, acumErr, cicloStamp,
+local tiempoCiclo, factorEscala, Err, lastErr, acumErr, cicloStamp, changeTime,
  result = Inicializar()
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
@@ -433,27 +433,26 @@ while true do
     setPoint = termostatoVirtual.targetLevel
     -- ajustar el instante de apagado según el cálculo del tiempo de encendido
     -- y guardar el último error y error acumulado
-    toolKit:log(INFO, 'Último error: '..lastErr..' Error acumulado: '..acumErr)
+    toolKit:log(INFO, 'Último error: '..lastErr..' Error acumulado: '..acumErr..
+     ' Tiempo: '..os.time() - changeTime)
     result, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
      lastErr, histeresis, factorEscala, tiempoCiclo)
     -- ajustar el nuevo instante de cálculo PID
     cicloStamp = os.time() + tiempoCiclo
-    -- Informar
-    if result and result <= 0 then
-      toolKit:log(INFO, 'Caldera OFF')
-    else
-      toolKit:log(INFO, 'Caldera ON')
-    end
   end
 
   --[[encendido apagado]]
-  -- si la salida es negativa apagar
-  if result and result <= 0 then
+  -- si la salida es mayor que el tiempo desde que se encindió, apagar
+  if (os.time() - changeTime) > result then
     -- actualizar dispositivo si está encendido apagar
     if termostatoVirtual.oN then
+      -- actualizar dispositivo
       termostatoVirtual.oN = false
       fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-      toolKit:log(INFO, 'Apagar')
+      -- actualizar instante de cambio de estado
+      changeTime = os.time()
+      -- informar
+      toolKit:log(INFO, 'Caldera OFF')
     end
     -- actuar sobre el actuador si es preciso
     setActuador(termostatoVirtual.actuatorId, false)
@@ -462,7 +461,10 @@ while true do
     if not termostatoVirtual.oN then
       termostatoVirtual.oN = true
       fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-      toolKit:log(INFO, 'Encender')
+      -- actualizar instante de cambio de estado
+      changeTime = os.time()
+      -- informar
+      toolKit:log(INFO, 'Caldera ON')
     end
     -- actuar sobre el actuador si es preciso
     setActuador(termostatoVirtual.actuatorId, true)
