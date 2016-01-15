@@ -220,7 +220,7 @@ end
 calculoDerivativo(Err,lastErr,kD)
 	Calculo del termino derivativo
 ------------------------------------------------------------------------------]]
-function calculoDerivativo(err,lastErr,kD)
+function calculoDerivativo(err, lastErr, kD)
 	D = (err - lastErr) * kD -- Termino derivativo
 	return D
 end
