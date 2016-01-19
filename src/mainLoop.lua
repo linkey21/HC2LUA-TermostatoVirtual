@@ -6,12 +6,12 @@
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local iconoId = 1059
-local intervalo = 1          -- intervalo de refersco en segundos
-local tiempoCiclo = 300      -- tiempo por ciclo en segundos
+local intervalo = 15         -- intervalo de refersco en segundos
+local tiempoCiclo = 900      -- tiempo por ciclo en segundos
 local histeresis = 0.2        -- histeresis en grados
-local kP = tiempoCiclo        -- Proporcional
-local kI = 20--.06 * tiempoCiclo  -- Integral
-local kD = 20--6000 / tiempoCiclo -- Derivativo
+local kP = tiempoCiclo  / 2      -- Proporcional
+local kI = .03 * tiempoCiclo  -- Integral
+local kD = 6000 / tiempoCiclo -- Derivativo
 local offSetSonda = -2
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
@@ -195,9 +195,10 @@ function Inicializar()
 	local acumErr = 0 -- Suma error calculado
   local cicloStamp = os.time() -- timestamp hasta próximo ciclo
   local changePoint = os.time() -- punto de cambio de estado de la Caldera
+  local inicioCiclo = os.time() -- se inicia el ciclo
   local result = 0 -- resultado salida del PID
 	return tiempoCiclo * factorEscala, factorEscala, Err, lastErr, acumErr,
-   cicloStamp, changePoint, result
+   cicloStamp, changePoint, inicioCiclo, result
 end
 --[[
 calculoError(Actual, Consigna)
@@ -234,19 +235,23 @@ function calculoIntegral(acumErr, kI)
 	return I
 end
 
---[[
-antiWindUpInt(result, tiempo, acumErr, newEr)
+--[[antiWindUpInt(result, tiempo, acumErr, newEr)
+  () result:
+  () tiempo:
+  () acumErr:
+  () newErr:
+  antiwindup del integrador
 ------------------------------------------------------------------------------]]
 function antiWindUpInt(result, tiempo, acumErr, newErr, histeresis)
-	-- si el resultado está dentro del rango de tiempoCiclo acumular error
-	if (result < tiempo) and (result > (0 - tiempo)) then
+	-- si el resultado está dentro del rango de tiempoCiclo acumular error, sin
+  -- encontrarse dentro del rango de histeresis
+	if ((result < tiempo) and (result > (0 - tiempo))) and
+   not inHisteresis(newErr, histeresis) then
     return acumErr + newErr
   end
-  -- si el resultado está fuera del rango no se acumula el error de esta forma
-  -- se detiene el cálculo integral
+  -- si el resultado está fuera del rango o dentro del rango de histeresis, no
+  -- se acumula el error de esta forma se detiene el cálculo integral
   toolKit:log(INFO, 'antiWindUp integral '..acumErr)
-  -- ajustar histeresis
-  if inHisteresis(newErr, histeresis) then return 0 end
 	return acumErr
 end
 
@@ -276,9 +281,11 @@ end
   (number) histeresis:
     devuelve si el error se encuentra dentro del rango de histeresis--]]
 function inHisteresis(lastErr, histeresis)
-  if lastErr >= histeresis then return false end
-  toolKit:log(INFO, 'ajuste histeresis')
-  return true
+  if lastErr <= histeresis and lastErr > 0 then
+    toolKit:log(INFO, 'ajuste histeresis')
+    return true
+  end
+  return false
 end
 
 --[[calculatePID(currentTemp, setPoint)
@@ -287,6 +294,8 @@ end
 Calcula utilizando un PID el tiempo de encendido del sistema]]
 function calculatePID(currentTemp, setPoint, acumErr, lastErr, factor, tiempo,
   histeresis)
+  -- ajustar el tiempo de ciclo añadiendo el intervalo entre lecturas
+  tiempo = tiempo +intervalo
   local newErr, result = 0, 0
   -- calcular error
   newErr = calculoError(currentTemp, setPoint)
@@ -340,7 +349,7 @@ toolKit:log(INFO, release['name']..
 
 -- Inicializar Variables
 local tiempoCiclo, factorEscala, Err, lastErr, acumErr, cicloStamp, changePoint,
- result = Inicializar()
+ inicioCiclo, result = Inicializar()
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 while true do
@@ -443,6 +452,9 @@ while true do
     fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
   end
 
+  --[[comprobar inicio de ciclo--]]
+  if (os.time() - inicioCiclo) >= tiempoCiclo then inicioCiclo = os.time() end
+
   --[[cálculo PID]]
   -- comprobar si se ha cumplido un ciclo para volver a calcular el PID
   if os.time() >= cicloStamp then
@@ -455,9 +467,9 @@ while true do
     result, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
      lastErr, factorEscala, tiempoCiclo, histeresis)
     -- ajustar el punto de cambio de estado de la Caldera
-    changePoint = os.time() + result
+    changePoint = inicioCiclo + result
     -- ajustar el nuevo instante de cálculo PID
-    cicloStamp = os.time() + tiempoCiclo
+    cicloStamp = os.time() + intervalo
     -- informar
     toolKit:log(INFO, 'Error acumulado: '..acumErr)
   end
@@ -486,48 +498,12 @@ while true do
       termostatoVirtual.oN = false
       fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
       -- informar
-      toolKit:log(INFO, 'OFF '..(tiempoCiclo - (os.time() - changePoint)))
+      toolKit:log(INFO, 'OFF '..(tiempoCiclo - (os.time() - inicioCiclo)))
       -- actuar sobre el actuador si es preciso
       setActuador(termostatoVirtual.actuatorId, false)
     end
   end
 
-  --[[
-  if os.time() - changeTime) > result then
-    -- actualizar solo si el dispositivo cambia de estado
-    if termostatoVirtual.oN then
-      -- ajustar la diferencia del intervalo de actualización para evitar
-      -- apagados indebidos
-      if ((os.time() - changeTime) - result) > intervalo then
-        -- actualizar dispositivo
-        termostatoVirtual.oN = false
-        fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-        -- informar
-        toolKit:log(INFO, result - (os.time() - changeTime)..' OFF')
-        -- actuar sobre el actuador si es preciso
-        setActuador(termostatoVirtual.actuatorId, false)
-        -- actualizar instante de cambio de estado
-        changeTime = os.time()
-      end
-    end
-    -- si la salida es negativa el tiempo no cuenta
-    if result < 0 then changeTime = os.time() end
-  else
-    -- TODO aquí habría que aplicar la HISTERESIS
-    -- actualizar dispositivo si está apagado encender
-    if not termostatoVirtual.oN then
-      termostatoVirtual.oN = true
-      fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-      -- informar
-      toolKit:log(INFO, result - (os.time() - changeTime)..' ON')
-      -- actuar sobre el actuador si es preciso
-      setActuador(termostatoVirtual.actuatorId, true)
-      -- restaurar instante de cambio de estado
-      changeTime = os.time()
-    end
-  end
-  ]]
-
- fibaro:sleep(intervalo*1000)
+ fibaro:sleep(1000)
 end
 --🌛 🔧  🔥  🔘
