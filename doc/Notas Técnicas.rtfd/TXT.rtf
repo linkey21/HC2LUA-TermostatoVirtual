@@ -8,8 +8,8 @@
 \f0\fs26 \cf2 \expnd0\expndtw0\kerning0
 PID\
 Tenemos por un lado una 
-\b escena
-\b0  que es el propio regulador o PID de la calefacci\'f3n. \
+\b \cf2 escena
+\b0 \cf2  que es el propio regulador o PID de la calefacci\'f3n. \
 Est\'e1 en fase experimental con una f\'f3rmula de regulaci\'f3n muy b\'e1sica aunque funcional.\
 Lo que no hace es activar el rel\'e9 de la caldera... \'fanicamente muestra en el debug el tiempo que tendr\'eda encendida la caldera.\
 Lo hago as\'ed para tratar de compararlo con el termostato que tengo ahora y ver como se comporta por el momento.\
@@ -18,8 +18,8 @@ En cualquier caso, olv\'eddate de esto ahora... lo importante es que la escena t
 En base a eso hace una serie de operaciones matem\'e1ticas de regulaci\'f3n y muestra en el debug cuanto tiempo encender\'eda la caldera.\
 \
 La temperatura de consigna la toma de una etiqueta del 
-\b VD
-\b0 .\
+\b \cf2 VD
+\b0 \cf2 .\
 El VD hace varias cosas... \
 por un lado controla el modo de operaci\'f3n (off=5\'baC, Eco=18\'baC, Manual con la temperatura que seleccionas o Auto con la temperatura que toma de un panel de temperatura).\
 Hasta ahora hice pruebas con el panel de temperaturas (modo AUTO), ya que es lo que m\'e1s me interesa.\
@@ -50,37 +50,79 @@ Se necesitar\'eda un Termostato Virtual que permita indicar que panel de calefac
 Dada la complejidad del sistema PID, este se puede mantenerse en una escena separada tal y como esta ahora o a\'f1adirlo al bucle principal del termostato.\
 Se podr\'eda utilizar una variable global para mantener una tabla que represente el termostato y que sirva en su caso para intercambiar informaci\'f3n con la escena PID.\
 	
-\b \{nodeId, deviceIcon, targetLevel, timestamp, tempId, value , actuatorId, zoneId, panelId\} 
-\b0 \
+\b \cf2 \{nodeId, deviceIcon, targetLevel, timestamp, tempId, value , actuatorId, zoneId, panelId\} 
+\b0 \cf2 \
 	
-\b nodeId
-\b0  = id del VD\
+\b \cf2 nodeId
+\b0 \cf2  = id del VD\
 	
-\b deviceIcon
-\b0  = id del icono de usuario para cada estado\
+\b \cf2 deviceIcon
+\b0 \cf2  = id del icono de usuario para cada estado\
 	
-\b targetLevel
-\b0  = temperatura de consigna\
+\b \cf2 targetLevel
+\b0 \cf2  = temperatura de consigna\
 	
-\b timestamp
-\b0  = instante hasta el cual se mantiene el modo manual\
+\b \cf2 timestamp
+\b0 \cf2  = instante hasta el cual se mantiene el modo manual\
 	
-\b tempId
-\b0  = id de la sonda de temperatura\
+\b \cf2 tempId
+\b0 \cf2  = id de la sonda de temperatura\
 	
-\b value
-\b0  = valor actual (temperatura)\
+\b \cf2 value
+\b0 \cf2  = valor actual (temperatura)\
 	
-\b actuatorId
-\b0  = id del actuador de la caldera.\
+\b \cf2 actuatorId
+\b0 \cf2  = id del actuador de la caldera.\
 	
-\b zoneId
-\b0  = id del panel de calefacci\'f3n (si es 0, funcionar de modo manual)\
+\b \cf2 zoneId
+\b0 \cf2  = id del panel de calefacci\'f3n (si es 0, funcionar de modo manual)\
 \
 En una primera fase, hacer que el termostato virtual funcione en modo autom\'e1tico, se pueda seleccionar el panel de calefacci\'f3n y la sonda de temperatura y sea capaz de completa la variable global con la tabla inicial 
-\b \{targetLevel, value\}.\
+\b \cf2 \{targetLevel, value\}.\
 
-\b0 De esta forma Antonio puede trabajar el la escena PID, conservando en el c\'f3digo una funci\'f3n que obtenga los valores del termostato virtual 
-\b targetLevel 
-\b0 y 
-\b value}
+\b0 \cf2 De esta forma Antonio puede trabajar el la escena PID, conservando en el c\'f3digo una funci\'f3n que obtenga los valores del termostato virtual 
+\b \cf2 targetLevel 
+\b0 \cf2 y 
+\b \cf2 value\
+\
+\
+Tiempo de ciclo e  intervalo de c\'e1lculo PID
+\b0 \cf2 \
+Se han realizado algunas modificaciones que permiten independizar el tiempo de ciclo del intervalo de c\'e1lculo PID, de forma que el PID se pueda calcular regularmente sin depender de los ciclos de calefacci\'f3n.
+\b \cf2 \
+\
+
+\b0 \cf2 El sistema trabaja con ciclos de caldera con una duraci\'f3n determinada por 
+\b \cf2 tiempoCiclo 
+\b0 \cf2 (se puede plantear un ajuste din\'e1mico de los ciclos)
+\b \cf2 .\
+
+\b0 \cf2 Al comenzar el proceso se establece el 
+\b \cf2 inicioCiclo
+\b0 \cf2  que es el instante en el que comienza el ciclo.\
+Cada 
+\b \cf2 intervalo
+\b0 \cf2  se invoca el calculo PID de forma regular, del que se obtiene una salida (
+\b \cf2 result
+\b0 \cf2 ) que representa el pulso o duraci\'f3n de encendido de la caldera dentro del ciclo, de este valor se obtiene el momento en el que deber\'eda cambiar el estado de la caldera 
+\b \cf2 changePoint
+\b0 \cf2  OFF/ON.\
+El 
+\b \cf2 intervalo
+\b0 \cf2  puede ser (normalmente lo ser\'e1) mas peque\'f1o que el tiempo de cliclo (
+\b \cf2 tiempoCiclo) 
+\b0 \cf2 lo que hace que el pulso (
+\b \cf2 changePoint
+\b0 \cf2 ) se rectifique varias veces durante el ciclo, esto no vuelve a resetear todo el ciclo, \'fanicamente rectifica cambiando el punto de cambio 
+\b \cf2 (changePoint = inicioCiclo + result) 
+\b0 \cf2 y mantiene guardado el inicio de ciclo en 
+\b \cf2 inicioCiclo.\
+
+\b0 \cf2 Cada 
+\b \cf2 intervalo
+\b0 \cf2  se comprueba si el ciclo de calefacci\'f3n a terminado y se inicia uno nuevo reseteando 
+\b \cf2 inicioCiclo
+\b0 \cf2 .
+\b \cf2 \
+\
+}
