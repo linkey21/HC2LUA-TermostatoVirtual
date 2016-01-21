@@ -6,13 +6,14 @@
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local iconoId = 1059
-local intervalo = 15         -- intervalo de refersco en segundos
-local tiempoCiclo = 900      -- tiempo por ciclo en segundos
-local histeresis = 0.2        -- histeresis en grados
-local kP = tiempoCiclo  / 2      -- Proporcional
-local kI = .03 * tiempoCiclo  -- Integral
-local kD = 6000 / tiempoCiclo -- Derivativo
-local offSetSonda = -2
+local intervalo = 600     -- intervalo de refersco en segundos
+local tiempoCiclo = 600   -- tiempo por ciclo de calefacción en segundos
+local histeresis = 0.2    -- histeresis en grados
+local kP = 150            -- Proporcional
+local kI = 20             -- Integral
+local kD = 40             -- Derivativo
+local offSetSonda = -1.9  -- ajuste de la sonda con la temperatura real
+local thingspeakKey = 'CQCLQRAU070GEOYY'
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -21,7 +22,6 @@ local offSetSonda = -2
 local release = {name='TermostatoVirtual.mainLoop', ver=1, mayor=0, minor=0}
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
-local thingspeakKey = 'CQCLQRAU070GEOYY'
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -295,7 +295,7 @@ Calcula utilizando un PID el tiempo de encendido del sistema]]
 function calculatePID(currentTemp, setPoint, acumErr, lastErr, factor, tiempo,
   histeresis)
   -- ajustar el tiempo de ciclo añadiendo el intervalo entre lecturas
-  tiempo = tiempo +intervalo
+  tiempo = tiempo + intervalo
   local newErr, result = 0, 0
   -- calcular error
   newErr = calculoError(currentTemp, setPoint)
@@ -454,6 +454,7 @@ while true do
 
   --[[comprobar inicio de ciclo--]]
   if (os.time() - inicioCiclo) >= tiempoCiclo then inicioCiclo = os.time() end
+  -- if os.time() >= changePoint then inicioCiclo = os.time() end
 
   --[[cálculo PID]]
   -- comprobar si se ha cumplido un ciclo para volver a calcular el PID
