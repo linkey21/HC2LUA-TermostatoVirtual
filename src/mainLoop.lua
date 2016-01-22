@@ -5,7 +5,8 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-local iconoId = 1059
+local iconON = 1067
+local iconOFF = 1066
 local offSetSonda = -1.9  -- ajuste de la sonda con la temperatura real
 local thingspeakKey = 'CQCLQRAU070GEOYY'
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
@@ -203,8 +204,6 @@ end
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(_selfId)
 toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
--- icono
-fibaro:call(_selfId, 'setProperty', "currentIcon", iconoId)
 
 --[[Panel]]
 -- obtener el panel
@@ -222,17 +221,9 @@ if termostatoVirtual.probeId and termostatoVirtual.probeId ~= 0 then
   local value = tonumber(fibaro:getValue(termostatoVirtual.probeId, 'value'))
   -- offSet de la sonda
   value = value + offSetSonda
-  local targetLevel = termostatoVirtual.targetLevel
-  local onOff = ' _'
-  if termostatoVirtual.oN then onOff = ' 🔥' end
   -- actualizar dispositivo
   termostatoVirtual.value = value
   fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-  -- actualizar etiqueta
-  targetLevel = string.format('%.2f', targetLevel)
-  value = string.format('%.2f', value)
-  fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
-   value..'ºC / '..targetLevel..'ºC'..onOff)
 end
 
 --[[temperarura de consigna]]
@@ -241,22 +232,31 @@ if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.mode ~= 0
  then
   -- si es menor y status no es OFF, tomar temperatura del panel
   local targetLevel = getTargetLevel(panel)
-  local onOff = ' _'
-  if termostatoVirtual.oN then onOff = ' 🔥' end
   toolKit:log(DEBUG, 'Temperatura consigna: '..targetLevel..'ºC')
   -- si la "targetLevel" es distinto de 0 actualizar temperarura de consigna
   if targetLevel > 0 then
-    local value = tonumber(termostatoVirtual.value)
     -- actualizar dispositivo
     termostatoVirtual.targetLevel = targetLevel
     fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-    -- actualizar etiqueta
-    targetLevel = string.format('%.2f', targetLevel)
-    value = string.format('%.2f', value)
-    fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
-     value..'ºC / '..targetLevel..'ºC'..onOff)
   end
 end
+
+-- actualizar icono y etiquetas
+local onOff = ' _'
+local icono = iconOFF
+local targetLevel = tonumber(termostatoVirtual.targetLevel)
+local value = tonumber(termostatoVirtual.value)
+if termostatoVirtual.oN then
+  onOff = ' 🔥'
+  icono = iconON
+end
+targetLevel = string.format('%.2f', targetLevel)
+value = string.format('%.2f', value)
+-- actualizar etiqueta
+fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+ value..'ºC / '..targetLevel..'ºC'..onOff)
+-- actualizar icono
+fibaro:call(_selfId, 'setProperty', "currentIcon", icono)
 
 --[[tiempo de protección]]
 -- si el modo es no es OFF
