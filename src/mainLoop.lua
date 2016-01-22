@@ -205,6 +205,9 @@ end
 local termostatoVirtual = getDevice(_selfId)
 toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
+-- actualizar etiqueta identificador
+fibaro:call(_selfId, "setProperty", "ui.labelId.value", _selfId)
+
 --[[Panel]]
 -- obtener el panel
 local panel = getPanel(fibaro:getRoomID(_selfId))
@@ -304,7 +307,7 @@ end
 if termostatoVirtual.PID and termostatoVirtual.PID['timestamp'] ~= timestampPID
  then
   local PID = termostatoVirtual.PID
-  toolKit:log(INFO, json.encode(termostatoVirtual.PID))
+  toolKit:log(DEBUG, json.encode(termostatoVirtual.PID))
   timestampPID = termostatoVirtual.PID['timestamp']
   if not thingspeak then
     thingspeak = Net.FHttp("api.thingspeak.com")

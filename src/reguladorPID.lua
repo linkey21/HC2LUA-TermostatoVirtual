@@ -7,11 +7,6 @@
 	reguladorPID.lua
 	por Manuel Pascual & Antonio Maestre
 ------------------------------------------------------------------------------]]
--- si se inicia otra escena esta se suicida
-if fibaro:countScenes() > 1 then
-  fibaro:debug('terminado por nueva actividad')
-  fibaro:abort()
-end
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local thermostatId = 587  -- id del termostato virtual
@@ -24,11 +19,15 @@ local thingspeakKey = 'BM0VMH4AF1JZN3QD'
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
+-- si se inicia otra escena esta se suicida
+if fibaro:countScenes() > 1 then
+  fibaro:debug('terminado por nueva actividad')
+  fibaro:abort()
+end
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 local intervalo = tiempoCiclo
 local release = {name='reguladorPID', ver=1, mayor=0, minor=0}
-local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -126,22 +125,27 @@ end
 --[[antiWindUpH(result, tiempo, acumErr, newErr, histeresis, P, D, kI) --]]
 function antiWindUpH(result, tiempo, acumErr, newErr, histeresis, P, D, kI)
   -- si el resultado está dentro del anbito de tiempo de ciclo, no hay windUp
-  if ((result < tiempo) and (result > (0 - tiempo))) then
+  if ((result <= tiempo) and (result > 0)) then
     -- si el resultado esta dentro del ambito de histeresis, ajustar histeresis
     if newErr <= histeresis and newErr > 0 then
       -- devolver el error acumulado en el integrador para que el resultado sea
       -- igual a 0 y devolver 0 como resultado
       toolKit:log(INFO, 'Ajuste histéresis')
-      return (0 - (P +D)) / kI, 0
+      return (0 - (P + D)) / kI, 0
     end
     -- devolver el error acumulado en el integrador y el resultado
     return acumErr + newErr, result
   end
-  -- si el resultado está fuera del ambito de ciclo de tiempo devolver el error
-  -- para el integrador para que el resultado sea igual al ciclo de tiempo y el
-  -- rciclo de tiempo como resultado
   toolKit:log(INFO, 'Ajuste antiWindUp')
-  return (tiempo - (P + D)) / kI, tiempo
+  -- si el resultado es mayor que el ciclo de tiempo, devolver al integrado el
+  -- valor necesario para que el resultado sea igual al ciclo de tiempo y como
+  -- resultado devolver el ciclo de tiempo.
+  if result > 0 then
+    return (tiempo - (P + D)) / kI, tiempo
+  end
+  -- si el resultado es menor que el ciclo de tiempo devolver 0 como valor para
+  -- el integrador y 0 como resultado.
+  return 0, 0
 end
 
 --[[calculatePID(currentTemp, setPoint)
