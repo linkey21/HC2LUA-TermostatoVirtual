@@ -9,15 +9,15 @@
 ------------------------------------------------------------------------------]]
 -- si se inicia otra escena esta se suicida
 if fibaro:countScenes() > 1 then
-  _log(DEBUG, 'terminado por nueva actividad')
+  fibaro:debug('terminado por nueva actividad')
   fibaro:abort()
 end
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local thermostatId = 587  -- id del termostato virtual
-local tiempoCiclo = 10   -- tiempo por ciclo de calefacción en segundos
+local tiempoCiclo = 600   -- tiempo por ciclo de calefacción en segundos
 local histeresis = 0.2    -- histeresis en grados
-local kP = 150            -- Proporcional
+local kP = 150           -- Proporcional
 local kI = 20             -- Integral
 local kD = 40             -- Derivativo
 local thingspeakKey = 'BM0VMH4AF1JZN3QD'
@@ -70,7 +70,6 @@ function getDevice(nodeId)
     device = json.decode(device)
     -- si esta iniciado devolver el dispositivo
     if device.nodeId then
-      toolKit:log(DEBUG, 'nodeId: '..device.nodeId)
       return device
      end
   end
@@ -151,29 +150,31 @@ end
 Calcula utilizando un PID el tiempo de encendido del sistema]]
 function calculatePID(currentTemp, setPoint, acumErr, lastErr, tiempo,
   histeresis)
-  local newErr, result = 0, 0
+  local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
+   integral = 0, derivativo = 0}
   -- calcular error
-  newErr = calculoError(currentTemp, setPoint)
+  PID.newErr = calculoError(currentTemp, setPoint)
   -- calcular proporcional, Integra y derivativo
-  P = calculoProporcional(newErr, kP)
-  D = calculoDerivativo(newErr, lastErr, kD)
-  I = calculoIntegral(acumErr, kI)
+  PID.proporcional = calculoProporcional(PID.newErr , kP)
+  PID.derivativo = calculoDerivativo(PID.newErr , lastErr, kD)
+  PID.integral = calculoIntegral(PID.acumErr, kI)
   -- obtener el resultado
-  result = P + I + D -- Accion total = P+I+D
+  PID.result = PID.proporcional + PID.integral + PID.derivativo
   -- si el resultado entra en histéresis, calcular el integrador para que el
   -- resultado sea 0
   -- si el resultado sale del rango de ciclo de tiempo calcula el integrador
   -- para que el resultado sea el límete de tiempo.
-  acumErr, result = antiWindUpH(result, tiempo, acumErr, newErr, histeresis,
-   P, D, kI)
+  PID.acumErr, PID.result = antiWindUpH(PID.result, tiempo, PID.acumErr,
+   PID.newErr, histeresis, PID.proporcional, PID.derivativo, kI)
   -- analizar resultado
-  toolKit:log(INFO, 'E='..newErr..', P='..P..', I='..I..', D='..D..',S='..
-   result)
+  toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
+  PID.integral..', D='..PID.derivativo..', S='..PID.result)
 
   -- devolver el resultado, nuevo error y error acumulado
-  toolKit:log(DEBUG, 'Cálculo PID: '..result..' '..newErr..' '..acumErr)
-  return result, newErr, acumErr
+  toolKit:log(DEBUG, 'Cálculo PID: '..PID.result..' '..PID.newErr..' '..
+  PID.acumErr)
 
+  return PID
 end
 
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
@@ -208,12 +209,17 @@ while true do
     setPoint = termostatoVirtual.targetLevel
     -- ajustar el instante de apagado según el cálculo PID y guardar el último
     -- error y error acumulado
-    result, lastErr, acumErr = calculatePID(currentTemp, setPoint, acumErr,
-     lastErr, tiempoCiclo, histeresis)
+    local PID = calculatePID(currentTemp, setPoint, acumErr, lastErr, tiempoCiclo,
+     histeresis)
+     result, lastErr, acumErr = PID.result, PID.newErr, PID.acumErr
     -- ajustar el punto de cambio de estado de la Caldera
     changePoint = inicioCiclo + result
     -- ajustar el nuevo instante de cálculo PID
     cicloStamp = os.time() + intervalo
+    -- actualizar dispositivo
+    PID.timestamp = os.time()
+    termostatoVirtual.PID = PID
+    fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
     -- informar
     toolKit:log(INFO, 'Error acumulado: '..acumErr)
   end
@@ -223,15 +229,10 @@ while true do
   if os.time() < changePoint then
     termostatoVirtual.oN = true
     fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
-    -- informar
-    toolKit:log(DEBUG, 'ON '..(changePoint - os.time()))
   else
     termostatoVirtual.oN = false
     fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
-    -- informar
-    toolKit:log(DEBUG, 'OFF '..(tiempoCiclo - (os.time() - inicioCiclo)))
   end
 
- fibaro:sleep(1000)
 end
 --🌛 🔧  🔥  🔘
