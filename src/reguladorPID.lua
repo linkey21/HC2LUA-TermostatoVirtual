@@ -10,7 +10,9 @@
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local thermostatId = 587  -- id del termostato virtual
-local tiempoCiclo = 600   -- tiempo por ciclo de calefacción en segundos
+local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
+-- tiempo mínimo de para accionar calefacción por debajo del cual no se enciende
+local minTimeAction = 60
 local histeresis = 0.2    -- histeresis en grados
 local kP = 150           -- Proporcional
 local kI = 20             -- Integral
@@ -26,8 +28,9 @@ if fibaro:countScenes() > 1 then
 end
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
-local intervalo = tiempoCiclo
+local intervalo = cycleTime
 local release = {name='reguladorPID', ver=1, mayor=0, minor=0}
+
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -79,7 +82,6 @@ end
 --[[Inicializar()
   Inicializa variables --]]
 function Inicializar()
-	--if tiempoCiclo < 5 then tiempoCiclo = 5 end -- ciclo mínimo es de 5 min
 	local Err = 0 -- Error: diferencia entre consigna y valor actual
 	local lastErr = 0 -- Error en la iteracion anterior
 	local acumErr = 0 -- Suma error calculado
@@ -87,8 +89,8 @@ function Inicializar()
   local changePoint = os.time() -- punto de cambio de estado de la Caldera
   local inicioCiclo = os.time() -- se inicia el ciclo
   local result = 0 -- resultado salida del PID
-	return tiempoCiclo, Err, lastErr, acumErr, cicloStamp, changePoint,
-   inicioCiclo, result
+	return cycleTime, minTimeAction, Err, lastErr, acumErr, cicloStamp,
+   changePoint, inicioCiclo, result
 end
 
 --[[calculoError(Actual, Consigna)
@@ -126,18 +128,20 @@ end
 function antiWindUpH(result, tiempo, acumErr, newErr, histeresis, P, D, kI)
   -- si el resultado está dentro del anbito de tiempo de ciclo, no hay windUp
   if ((result <= tiempo) and (result > 0)) then
-    -- si el resultado esta dentro del ambito de histeresis, ajustar histeresis
-    if newErr <= histeresis and newErr > 0 then
-      -- devolver el error acumulado en el integrador para que el resultado sea
-      -- igual a 0 y devolver 0 como resultado
-      toolKit:log(INFO, 'Ajuste histéresis')
+    -- si la temperatura esta dentro del ambito de histeresis, o si el resultado
+    -- es menor que el tiempo mínimo de acción, ajustar a 0
+    if (newErr <= histeresis and newErr > 0 ) or result <= minTimeAction then
+      -- devolver el error para acumular en el integrador para que el resultado
+      -- sea igual a 0 y devolver 0 como resultado
+      toolKit:log(INFO, 'Ajuste a mínimos, Error: '..newErr..' Salida: '
+      ..result..' Mínimo: '..minTimeAction)
       return (0 - (P + D)) / kI, 0
     end
     -- devolver el error acumulado en el integrador y el resultado
     return acumErr + newErr, result
   end
-  toolKit:log(INFO, 'Ajuste antiWindUp')
-  -- si el resultado es mayor que el ciclo de tiempo, devolver al integrado el
+  toolKit:log(INFO, 'Ajuste a máximos, Salida: '..result)
+  -- si el resultado es mayor que el ciclo de tiempo, devolver al integrador el
   -- valor necesario para que el resultado sea igual al ciclo de tiempo y como
   -- resultado devolver el ciclo de tiempo.
   if result > 0 then
@@ -186,7 +190,8 @@ toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 
 -- Inicializar Variables
-local tiempoCiclo, Err, lastErr, acumErr, cicloStamp, changePoint, inicioCiclo,
+local cycleTime, minTimeAction, Err, lastErr, acumErr, cicloStamp,
+ changePoint, inicioCiclo,
  result = Inicializar()
 
  -- esperar hasta que exista el termostato
@@ -201,20 +206,20 @@ while true do
   toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
   --[[comprobar inicio de ciclo--]]
-  if (os.time() - inicioCiclo) >= tiempoCiclo then inicioCiclo = os.time() end
+  if (os.time() - inicioCiclo) >= cycleTime then inicioCiclo = os.time() end
   -- if os.time() >= changePoint then inicioCiclo = os.time() end
 
   --[[cálculo PID]]
   -- comprobar si se ha cumplido un ciclo para volver a calcular el PID
   if os.time() >= cicloStamp then
     -- leer temperatura de la sonda
-    currentTemp = termostatoVirtual.value
+    local currentTemp = termostatoVirtual.value
     -- temperatura de consigna
-    setPoint = termostatoVirtual.targetLevel
+    local setPoint = termostatoVirtual.targetLevel
     -- ajustar el instante de apagado según el cálculo PID y guardar el último
     -- error y error acumulado
-    local PID = calculatePID(currentTemp, setPoint, acumErr, lastErr, tiempoCiclo,
-     histeresis)
+    local PID = calculatePID(currentTemp, setPoint, acumErr, lastErr,
+     cycleTime, histeresis)
      result, lastErr, acumErr = PID.result, PID.newErr, PID.acumErr
     -- ajustar el punto de cambio de estado de la Caldera
     changePoint = inicioCiclo + result
@@ -229,14 +234,13 @@ while true do
   end
 
   --[[encendido / apagado]]
-  -- si la salida es mayor que el tiempo desde que se encendió, apagar
+  -- si no se ha llegado al punto de cambio encender
   if os.time() < changePoint then
     termostatoVirtual.oN = true
     fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
-  else
+  else -- si la salida es mayor que el tiempo desde que se encendió, apagar
     termostatoVirtual.oN = false
     fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
   end
 
 end
---🌛 🔧  🔥  🔘

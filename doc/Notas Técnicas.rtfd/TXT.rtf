@@ -1,6 +1,7 @@
 {\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf340
-{\fonttbl\f0\fswiss\fcharset0 ArialMT;}
-{\colortbl;\red255\green255\blue255;\red26\green26\blue26;}
+{\fonttbl\f0\fswiss\fcharset0 ArialMT;\f1\fnil\fcharset0 Verdana;\f2\froman\fcharset0 Times-Roman;
+\f3\fnil\fcharset0 AppleColorEmoji;\f4\fnil\fcharset0 Monaco;}
+{\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red15\green112\blue1;}
 \paperw11900\paperh16840\margl1440\margr1440\vieww23600\viewh20980\viewkind0
 \deftab720
 \pard\pardeftab720\partightenfactor0
@@ -124,8 +125,7 @@ El
 \b inicioCiclo
 \b0 .\
 \
-\pard\pardeftab720\partightenfactor0
-\cf2 Hola soy el plasta del PID otra vez.\
+Hola soy el plasta del PID otra vez.\
 Te comento una serie de cambios y dudas para ver si que te parece antes de seguir.\
 \
 Ya he vuelto a sacar el PID del termostato a un escena, tengo un problema para enviar los datos a thihspeak desde la escena as\'ed que finalmente los escribo en la variable global y es el VD quien los env\'eda con el consiguiente problema de posible parada del bucle principal, para esto he quitado el bucle cerrado de dentro de mainLoop y dejo que use el ciclo "natural" del VD, de momento parece que funciona.\
@@ -135,15 +135,110 @@ He modificado el antiwindup de tal forma que, si el resultado sale del rango del
 Dudas\
 Si la consigna est\'e1 por debajo de la temperatura, el PID devuelve valores negativos que se ajustan a 0 por el antiWindup  y la caldera estar\'e1 apagada. \
 Si la consigna est\'e1 por encima de la temperatura, el PID devuelve valores positivos que enciende la cadera parte del ciclo, si no se alcanza la consigna la salida sigue subiendo hasta que se satura y el antiWindup ajusta a (t), modulando el integrador (que puede quedar alto).\
-\pard\pardeftab720\partightenfactor0
-\cf2 Si produce un cambio manual o programado en la consigna, ser\'e1 capaz el regulador PID en el estado que haya quedado de abordar el cambio?, o hay que iniciar el proceso PID cada vez que cambia la consigna?.\
+Si produce un cambio manual o programado en la consigna, ser\'e1 capaz el regulador PID en el estado que haya quedado de abordar el cambio?, o hay que iniciar el proceso PID cada vez que cambia la consigna?.\
 \
 De momento la escena reguladorPID se arranca manualmente pero la idea es que se inicie/reinicie desde el termostato\
 \
 En el mainLoop del VD solo hay que configurar los iconos y el offset de la sonda\
 En la escena adem\'e1s de los par\'e1metros del PID, hay que configurar el id del VD\
-\
-Gracias
+
 \b \
+2016-01-24\
+\pard\pardeftab720\partightenfactor0
+
+\b0 \cf2 WindUp.\
+Lo que he implementado lo he sacado del manual \'93ApuntesControlPID (Mauricio Am\'e9stegui\'94 que me pasaste.\
+El rec\'e1lcalo trabaja como sigue: cuando la salida se satura, la integral es recalculada tal que su nuevo valor proporciona una salida en el l\'edmite de la saturaci\'f3n. Tiene la ventaja de no reinicializar el integrador instant\'e1neamente, pero s\'ed din\'e1micamente con una constante de tiempo\
+Esto es lo que he tratado de implementar.\
+\
+- Cuando se cambia la consigna, por ejemplo de modo manual, o cuando se selecciona ECO o pasas de Manual a AUTO o al reves... no se interrumpe el ciclo del actual PID y se recalcula todo.\'a0\
+Ahora el ciclo PID no se para nunca, esta ejecutados en la escena, es correcto?\
+\
+- OffSet Sensor: En mi caso ocurre algo muy raro... si pongo offset=0 el valor de la lectura del sensor que muestra el VD no coincide con el valor del sensor.\'a0\
+Deber\'eda coincidir con el valor del sensor el c\'f3digo lo \'fanico que hay es:\
+	 value = value + offSetSonda\
+\
+- Thigspeak, creo que debe incluir dos cosas m\'e1s que son las que nos interesa graficar:\
+OK lo a\'f1ado.\
+\'a0\'a0\
+- L\'edmites: No hay un l\'edmite inferior de tiempo de encendido. Tal como te dec\'eda el l\'edmite inferior deber\'edamos poder seleccionarlo mediante una variable. En mi caso ser\'e1 de 1 min para iniciar las pruebas. Es decir, si salida<1 min entonces no enciendo la caldera.\'a0\
+OK, lo voy a agregar al c\'f3digo como una variable\
+\
+- Debug Loop Principal en VD: En modo INFO solo me sale el primer inicio OFF y ah\'ed se queda para siempre. \'bfEs normal?\
+No, no es normal, deber\'eda dar informaci\'f3n cada ciclo de tiempo con la informaci\'f3n de la salida y cada cambio de estado de la caldera ON/OFF\
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 18:59:32: \cf3 E=0.9, P=135, I=138, D=0, S=273\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 18:59:32: \cf3 ON\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:04:04: \cf3 OFF\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:09:34: \cf3 E=0.9, P=135, I=156, D=0, S=291\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:09:34: \cf3 ON\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:14:21: \cf3 OFF\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:19:33: \cf3 E=0.8, P=120, I=174, D=-3.9999999999999, S=290\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:19:33: \cf3 ON\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:24:22: \cf3 OFF\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf2 \
+\
+- Caracteres especiales botones: No se como has conseguido meterlos... en la anterior versi\'f3n iban bien, pero en esta no funcionan. Aparece un recuadro sin m\'e1s.\
+
+\f3 \uc0\u55356 \u57115 
+\f0  
+\f3 \uc0\u55357 \u56615 
+\f0   
+\f3 \uc0\u55357 \u56613 
+\f0   
+\f3 \uc0\u55357 \u56600  
+\f4 http://www.copypastecharacter.com/all-characters
+\f0 \
+Son caracteres, he observado que desde que he actualizado a la versi\'f3n 4.070 en chrome no me aparecen esos caracteres pero en safari si.\
+\
+- Iconos: Solo se aplican los iconos cuando est\'e1 ON/OFF, pero si presionamos un bot\'f3n de cualquier tipo el icono que muestra es del cubo 3D del VD.\
+A mi me aparece el cubo 3D un instante, hasta que pasa un loop del c\'f3digo y se actualiza.\
+Este problemas de los iconos junto con lo de el que el debug solo indique OFF y se para, da la sensaci\'f3n de que el VD estuviera parado, en principio deber\'eda ejecutarse en loop  por defecto e ir actualizando el panel.\
+\
+Esta semana intento incluir kickderivative y cambio ON/OFF
+\b \cf2 \
 \
 }

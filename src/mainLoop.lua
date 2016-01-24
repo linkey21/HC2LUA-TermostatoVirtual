@@ -307,7 +307,9 @@ end
 if termostatoVirtual.PID and termostatoVirtual.PID['timestamp'] ~= timestampPID
  then
   local PID = termostatoVirtual.PID
-  toolKit:log(DEBUG, json.encode(termostatoVirtual.PID))
+  -- analizar resultado
+  toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
+  PID.integral..', D='..PID.derivativo..', S='..PID.result)
   timestampPID = termostatoVirtual.PID['timestamp']
   if not thingspeak then
     thingspeak = Net.FHttp("api.thingspeak.com")
