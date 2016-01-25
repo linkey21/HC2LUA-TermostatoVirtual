@@ -81,14 +81,23 @@ end
 
 --[[Inicializar()
   Inicializa variables --]]
-function Inicializar()
-	local Err = 0 -- Error: diferencia entre consigna y valor actual
-	local lastInput = 0 -- Error en la iteracion anterior
-	local acumErr = 0 -- Suma error calculado
-  local cicloStamp = os.time() -- timestamp hasta próximo ciclo
-  local changePoint = os.time() -- punto de cambio de estado de la Caldera
-  local result = 0 -- resultado salida del PID
-  local setPoint = 0 -- valor de la temperatura de consigna
+function Inicializar(thermostatId)
+  local termostatoVirtual = getDevice(thermostatId)
+  -- Error: diferencia entre consigna y valor actual
+	local Err = 0
+  -- temperatura en la iteracion anterior se inicia con la temperatura actual
+	local lastInput = termostatoVirtual.value
+  -- Suma error calculado se inicia a 0
+	local acumErr = 0
+  -- instante hasta próximo ciclo, se inicia con el instante actual
+  local cicloStamp = os.time()
+  -- intante de cambio de estado de la Caldera, se inicia con el instante actual
+  local changePoint = os.time()
+  -- resultado salida del PID. se inicia a 0
+  local result = 0
+  -- valor de la temperatura de consigna, se inicia con la consigna actual
+  local setPoint = termostatoVirtual.targetLevel
+
 	return cycleTime, minTimeAction, Err, lastInput, acumErr, cicloStamp,
    changePoint, setPoint, result
 end
@@ -154,7 +163,7 @@ function antiWindUpH(result, tiempo, acumErr, newErr, histeresis, P, D, kI)
     toolKit:log(INFO, 'Ajuste por salida mayor que ciclo: '..' Salida: '..
      result..' = '..tiempo)
      -- devolver el error para acumular en el integrador para que el resultado
-     -- sea igual a tiempo de cliclo  y devolver tiempo de cliclo como resultado
+     -- sea igual a tiempo de cliclo y devolver tiempo de cliclo como resultado
     return (tiempo - (P + D)) / kI, tiempo
   end
   -- si el resultado es menor que el ciclo de tiempo devolver 0 como valor para
@@ -174,7 +183,7 @@ function calculatePID(currentTemp, setPoint, acumErr, lastInput, tiempo,
    integral = 0, derivativo = 0}
   -- calcular error
   PID.newErr = calculoError(currentTemp, setPoint)
-  -- calcular proporcional, Integra y derivativo
+  -- calcular proporcional, Integral y derivativo
   PID.proporcional = calculoProporcional(PID.newErr , kP)
   -- anti derivative kick currentTemp - lastInput
   PID.derivativo = calculoDerivativo(currentTemp - lastInput, kD)
@@ -199,14 +208,14 @@ toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 toolKit:log(INFO, '-------------------------------------------------------')
 
--- Inicializar Variables
-local cycleTime, minTimeAction, Err, lastInput, acumErr, cicloStamp,
- changePoint, setPoint, result = Inicializar()
-
  -- esperar hasta que exista el termostato
  while not getDevice(thermostatId) do
    toolKit:log(DEBUG, 'Espeando por el termostato')
  end
+
+ -- Inicializar Variables
+ local cycleTime, minTimeAction, Err, lastInput, acumErr, cicloStamp,
+  changePoint, setPoint, result = Inicializar(thermostatId)
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 while true do
@@ -241,13 +250,6 @@ while true do
     -- guardar el último instante en el que se calcula el PID
     PID.timestamp = os.time()
     termostatoVirtual.PID = PID
-    --[[encendido / apagado]]
-    -- si no se ha llegado al punto de cambio encender
-    if os.time() < changePoint then
-      termostatoVirtual.oN = true
-    else -- si la salida es mayor que el tiempo desde que se encendió, apagar
-      termostatoVirtual.oN = false
-    end
     -- actualizar dispositivo
     fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
     -- informar
@@ -255,5 +257,20 @@ while true do
     toolKit:log(INFO, '-------------------------------------------------------')
   end
 
+  --[[encendido / apagado]]
+  -- si no se ha llegado al punto de cambio encender
+  if os.time() < changePoint then
+    if not termostatoVirtual.oN then
+      termostatoVirtual.oN = true
+      -- actualizar dispositivo
+      fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
+    end
+  else -- si la salida es mayor que el tiempo desde que se encendió, apagar
+    if termostatoVirtual.oN then
+      termostatoVirtual.oN = false
+      -- actualizar dispositivo
+      fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
+    end
+  end
 
 end
