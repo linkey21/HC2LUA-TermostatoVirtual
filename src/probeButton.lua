@@ -52,6 +52,9 @@ for key, value in pairs(devices) do
     table.insert(temperatureSensors, temperatureSensor)
   end
 end
+-- añadir sonda virtual
+local temperatureSensor = {id = 0, name = '🔧Sonda Virtual'}
+table.insert(temperatureSensors, temperatureSensor)
 
 -- seleccionar el siguiete sensor que corresponda
 temperatureSensor = fibaro:get(_selfId, 'ui.probeLabel.value')

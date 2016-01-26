@@ -190,8 +190,10 @@ function calculatePID(currentTemp, setPoint, acumErr, lastInput, tiempo,
   PID.integral = calculoIntegral(PID.acumErr, kI)
   -- obtener el resultado
   PID.result = PID.proporcional + PID.integral + PID.derivativo
+  -- antiWindUp/histeresis
   -- si el resultado entra en histéresis, calcular el integrador para que el
-  -- resultado sea 0
+  -- resultado sea 0, solo si la temperatura viene de subida
+  if (currentTemp - lastInput) <= 0 then histeresis = 0 end
   -- si el resultado sale del rango de ciclo de tiempo calcula el integrador
   -- para que el resultado sea el límete de tiempo.
   PID.acumErr, PID.result = antiWindUpH(PID.result, tiempo, PID.acumErr,
@@ -225,7 +227,7 @@ while true do
 
   --[[comprobar cambio en la consigna setPoint--]]
   -- si cambia la temperatura de consigna, interrupir el ciclo e iniciar un
-  -- nuevo ciclo dejando el estado de PID igual
+  -- nuevo ciclo dejando el estado del PID igual
   if setPoint ~= termostatoVirtual.targetLevel then
     toolKit:log(INFO, 'Cambio del valor de la temperatura de consigna')
     cicloStamp = os.time()

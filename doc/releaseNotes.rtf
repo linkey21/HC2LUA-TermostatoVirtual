@@ -230,18 +230,20 @@ Si la salida no para de aumentar es que no se est\'e1 consiguiendo la temperatur
 Implementar 
 \b autoausente
 \b0 , detectores de presencia para determinar si hay alguien en casa.\
-Duda, cada vez que se ajusta la consiga hay que iniciar el ciclo de calefacc\
-i\'f3n?\
 \
-2016-01-24\
 \pard\pardeftab720\partightenfactor0
 
-\b \cf2 Tiempo m\'ednimo de acci\'f3n
+\b \cf2 Ajuste de consiga
+\b0 \
+Cada vez que se ajusta la consiga, hay que iniciar el ciclo de calefacci\'f3n conservando los valores del PID\
+\
+
+\b Tiempo m\'ednimo de acci\'f3n
 \b0 \
 Una pregunta... Cuando se calcula la acci\'f3n... Hay alg\'fan ciclo m\'ednimo? Quiero decir... Imagina que la acci\'f3n de control dice que enciendas la calefacci\'f3n durante dos segundos. Esto es absurdo! Lo suyo es establecer un tiempo m\'ednimo de acci\'f3n. Por ejemplo: 1 min \
 Implementado tiempo m\'ednimo de para accionar calefacci\'f3n por debajo del cual no se enciende\
 local minTimeAction = 60.\
-Se ha implementado dentro del windUp, de tal forma que si el resultado es menor que el tiempo m\'ednimo de acci\'f3n se ajusta el integrador y la lapida a 0 para que no se encienda \
+Se ha implementado dentro del windUp, de tal forma que si el resultado es menor que el tiempo m\'ednimo de acci\'f3n se ajusta el integrador y la salida a 0 para que no se encienda \
 \
 
 \b kickderivative
@@ -252,9 +254,23 @@ cambio ON/OFF\
 \pard\pardeftab720\partightenfactor0
 {\field{\*\fldinst{HYPERLINK "http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-onoff/"}}{\fldrslt \cf5 \ul \ulc5 http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-onoff/}}\cf5 \ul \ulc5 \
 \pard\pardeftab720\partightenfactor0
-{\field{\*\fldinst{HYPERLINK "http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-initialization/"}}{\fldrslt \cf5 http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-initialization/}}\cf2 \ulnone \
-- 
+{\field{\*\fldinst{HYPERLINK "http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-initialization/"}}{\fldrslt \cf5 http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-initialization/}}\
+\pard\pardeftab720\partightenfactor0
+\cf2 \ulnone \
+
 \b Thigspeak
 \b0 ,\
 creo que debe incluir dos cosas m\'e1s que son las que nos interesa graficar:\
-local payload = "key="..thingspeakKey.."&field1="..PID.newErr.. "&field2="..PID.proporcional.."&field3="..PID.integral.."&field4="..PID.derivativo.."&field5="..PID.result.."&field6="..targetLevel.."&field7="..termostatoVirtual.value}
+local payload = "key="..thingspeakKey.."&field1="..PID.newErr.. "&field2="..PID.proporcional.."&field3="..PID.integral.."&field4="..PID.derivativo.."&field5="..PID.result.."&field6="..targetLevel.."&field7="..termostatoVirtual.value\
+\
+
+\b histeresis solo en subida
+\b0 \
+Aplicar el filtro del histeresis solo si la temperatura viene subiendo\
+\
+
+\b sonda virtual\
+
+\b0  funci\'f3n para obtener la temperatura de la sonda virtual, escribir a \
+-- continuaci\'f3n de 'return' el c\'f3digo o expresi\'f3n para obtener la temperatura\
+}
