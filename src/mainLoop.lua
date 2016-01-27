@@ -8,8 +8,6 @@
 -- id de los iconos ON OFF
 local iconON = 1067
 local iconOFF = 1066
--- thingspeakKey Key para registro y gráficas de temperatura
-local thingspeakKey = 'CQCLQRAU070GEOYY'
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
 local virtualProbe = function (self, ...)
@@ -312,28 +310,9 @@ if termostatoVirtual.mode ~= 0 then
   fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
 end
 
---[[cálculo PID]]
--- actualizar solo si el PID cambia
-if termostatoVirtual.PID and termostatoVirtual.PID['timestamp'] ~= timestampPID
- then
-  local PID = termostatoVirtual.PID
-  -- analizar resultado
-  toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
-  PID.integral..', D='..PID.derivativo..', S='..PID.result)
-  timestampPID = termostatoVirtual.PID['timestamp']
-  if not thingspeak then
-    thingspeak = Net.FHttp("api.thingspeak.com")
-  end
-  local payload = "key="..thingspeakKey.."&field1="..PID.newErr..
-  "&field2="..PID.proporcional.."&field3="..PID.integral..
-  "&field4="..PID.derivativo.."&field5="..PID.result..
-  "&field6="..termostatoVirtual.targetLevel.."&field7="..termostatoVirtual.value
-  local response, status, errorCode = thingspeak:POST('/update', payload)
-end
-
 --[[encendido / apagado]]
 -- actualizar solo si el dispositivo cambia de estado
-if termostatoVirtual.oN ~= on then
+--if termostatoVirtual.oN ~= on then
   if termostatoVirtual.oN then
     -- informar
     toolKit:log(INFO, 'ON')
@@ -347,6 +326,6 @@ if termostatoVirtual.oN ~= on then
     setActuador(termostatoVirtual.actuatorId, false)
     on = false
   end
-end
+--end
 --fibaro:sleep(1000)
 --🌛 🔧  🔥  🔘

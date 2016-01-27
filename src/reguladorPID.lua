@@ -17,7 +17,6 @@ local histeresis = 0.2    -- histeresis en grados
 local kP = 150           -- Proporcional
 local kI = 20             -- Integral
 local kD = 40             -- Derivativo
-local thingspeakKey = 'BM0VMH4AF1JZN3QD'
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -254,9 +253,11 @@ while true do
     termostatoVirtual.PID = PID
     -- actualizar dispositivo
     fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
-    -- informar
+    -- informar y decir al termostato que actualice las gráficas
     toolKit:log(INFO, 'Error acumulado: '..acumErr)
     toolKit:log(INFO, '-------------------------------------------------------')
+    -- actualizar las gráficas invocando al botón statusButton del termostato
+    fibaro:call(thermostatId, "pressButton", "16")
   end
 
   --[[encendido / apagado]]
