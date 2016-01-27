@@ -11,7 +11,8 @@ local iconOFF = 1066
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
 local virtualProbe = function (self, ...)
-  return fibaro:getValue(389, 'value') - 1.9
+  local t = fibaro:getValue(389, 'value')
+  return math.floor((t - (30 / t)) * 100) / 100
 end
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 

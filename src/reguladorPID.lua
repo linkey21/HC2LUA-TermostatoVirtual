@@ -14,7 +14,7 @@ local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 -- tiempo mínimo de para accionar calefacción por debajo del cual no se enciende
 local minTimeAction = 60
 local histeresis = 0.2    -- histeresis en grados
-local kP = 150           -- Proporcional
+local kP = 150 * 1.25     -- Proporcional
 local kI = 20             -- Integral
 local kD = 40             -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
@@ -129,7 +129,8 @@ end
 ------------------------------------------------------------------------------]]
 function calculoIntegral(acumErr, kI)
 	I = acumErr * kI -- Termino integral
-	return I
+	-- return I
+  return 0
 end
 
 --[[antiWindUpH(result, tiempo, acumErr, newErr, histeresis, P, D, kI) --]]
@@ -186,6 +187,7 @@ function calculatePID(currentTemp, setPoint, acumErr, lastInput, tiempo,
   PID.proporcional = calculoProporcional(PID.newErr , kP)
   -- anti derivative kick currentTemp - lastInput
   PID.derivativo = calculoDerivativo(currentTemp - lastInput, kD)
+  -- reset del antiwindup newErr<=0-5 and newErr>=-0.5
   PID.integral = calculoIntegral(PID.acumErr, kI)
   -- obtener el resultado
   PID.result = PID.proporcional + PID.integral + PID.derivativo

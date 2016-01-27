@@ -240,13 +240,20 @@ Cada vez que se ajusta la consiga, hay que iniciar el ciclo de calefacci\'f3n co
 
 \b Tiempo m\'ednimo de acci\'f3n
 \b0 \
-Una pregunta... Cuando se calcula la acci\'f3n... Hay alg\'fan ciclo m\'ednimo? Quiero decir... Imagina que la acci\'f3n de control dice que enciendas la calefacci\'f3n durante dos segundos. Esto es absurdo! Lo suyo es establecer un tiempo m\'ednimo de acci\'f3n. Por ejemplo: 1 min \
-Implementado tiempo m\'ednimo de para accionar calefacci\'f3n por debajo del cual no se enciende\
 local minTimeAction = 60.\
 Se ha implementado dentro del windUp, de tal forma que si el resultado es menor que el tiempo m\'ednimo de acci\'f3n se ajusta el integrador y la salida a 0 para que no se encienda \
 \
 
-\b kickderivative
+\b Tiempo m\'ednimo de de apagado\
+\pard\pardeftab720\partightenfactor0
+
+\b0 \cf2 Si hay que apagar menos tiempo que el m\'ednimo de acci\'f3n no apagar y dejar que finalice el ciclo encendido.\
+Por ejemplo la salida es 558 de un ciclo de 600, esta hace que encienda la caldera durante 558s y se apague durante 52s, y seg\'fan el siguiente c\'e1lculo decidir\'e1 si sigue encendido (que es lo l\'f3gico) y cuanto tiempo el siguiente ciclo.\
+Se implementar\'eda dentro del windup, de tal forma que si (tiempo de cliclo -  tiempo m\'ednimo) < resultado se ajuste el resultado al tiempo de ciclo.\
+\
+\pard\pardeftab720\partightenfactor0
+
+\b \cf2 kickderivative
 \b0 \
 \pard\pardeftab720\partightenfactor0
 {\field{\*\fldinst{HYPERLINK "http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-derivative-kick/"}}{\fldrslt \cf5 \ul \ulc5 http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-derivative-kick/}}\
@@ -273,4 +280,9 @@ Aplicar el filtro del histeresis solo si la temperatura viene subiendo\
 
 \b0  funci\'f3n para obtener la temperatura de la sonda virtual, escribir a \
 -- continuaci\'f3n de 'return' el c\'f3digo o expresi\'f3n para obtener la temperatura\
+\
+
+\b Si se reinicia el HC\'94 que se recupere el PID\
+
+\b0 \
 }

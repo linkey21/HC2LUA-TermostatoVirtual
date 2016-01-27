@@ -1,7 +1,8 @@
 {\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf340
 {\fonttbl\f0\fswiss\fcharset0 ArialMT;\f1\fnil\fcharset0 Verdana;\f2\froman\fcharset0 Times-Roman;
 \f3\fnil\fcharset0 AppleColorEmoji;\f4\fnil\fcharset0 Monaco;}
-{\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red15\green112\blue1;}
+{\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red15\green112\blue1;\red29\green38\blue42;
+}
 \paperw11900\paperh16840\margl1440\margr1440\vieww23600\viewh20980\viewkind0
 \deftab720
 \pard\pardeftab720\partightenfactor0
@@ -144,9 +145,8 @@ En la escena adem\'e1s de los par\'e1metros del PID, hay que configurar el id de
 
 \b \
 2016-01-24\
-\pard\pardeftab720\partightenfactor0
 
-\b0 \cf2 WindUp.\
+\b0 WindUp.\
 Lo que he implementado lo he sacado del manual \'93ApuntesControlPID (Mauricio Am\'e9stegui\'94 que me pasaste.\
 El rec\'e1lcalo trabaja como sigue: cuando la salida se satura, la integral es recalculada tal que su nuevo valor proporciona una salida en el l\'edmite de la saturaci\'f3n. Tiene la ventaja de no reinicializar el integrador instant\'e1neamente, pero s\'ed din\'e1micamente con una constante de tiempo\
 Esto es lo que he tratado de implementar.\
@@ -222,8 +222,9 @@ No, no es normal, deber\'eda dar informaci\'f3n cada ciclo de tiempo con la info
 \f0\fs26 \cf2 \
 \
 - Caracteres especiales botones: No se como has conseguido meterlos... en la anterior versi\'f3n iban bien, pero en esta no funcionan. Aparece un recuadro sin m\'e1s.\
+\pard\pardeftab720\partightenfactor0
 
-\f3 \uc0\u55356 \u57115 
+\f3 \cf2 \uc0\u55356 \u57115 
 \f0  
 \f3 \uc0\u55357 \u56615 
 \f0   
@@ -238,7 +239,45 @@ Son caracteres, he observado que desde que he actualizado a la versi\'f3n 4.070 
 A mi me aparece el cubo 3D un instante, hasta que pasa un loop del c\'f3digo y se actualiza.\
 Este problemas de los iconos junto con lo de el que el debug solo indique OFF y se para, da la sensaci\'f3n de que el VD estuviera parado, en principio deber\'eda ejecutarse en loop  por defecto e ir actualizando el panel.\
 \
-Esta semana intento incluir kickderivative y cambio ON/OFF
-\b \cf2 \
+Esta semana intento incluir kickderivative y cambio ON/OFF\
+\
+Por orden\
+\pard\pardeftab720\partightenfactor0
+
+\b \cf2 Reset del antiwindup
+\b0 \
+ errAcum=0 hasta que newErr<=0-5 and newErr>=-0.5\
+\
+\
+
+\b antiwindup \
+
+\b0 si newErr <=.5 y >=-.5 comprobar que newErr*KI < ciclo\
+y mayor que 0\
+\'a0si es mayor limitar \'a0la salida = ciclo y errAcum = lastErr\
+\
+AU\'cd argumentar \
+-- devolver el error para acumular en el integrador para que el resultado\
+     -- sea igual a tiempo de cliclo y devolver tiempo de cliclo como resultado\
+    return (tiempo - (P + D)) / kI, tiempo\
+\
+Que pasa si SalidaIntegral < ciclo pero SalidaTotal > ciclo?\
+\
+
+\b Integraci\'f3n normal\
+\pard\pardeftab720\sl320\partightenfactor0
+
+\b0 \cf4 \outl0\strokewidth0 \strokec4 \uc0\u8234 ErrAcum+=Error\cf2 \outl0\strokewidth0 \uc0\u8236 \
+\pard\pardeftab720\partightenfactor0
+\cf2 \
+pero que pasa cuando el error vuelve a alejarse de la consigna?, que hago con el errAcum?\
+Lo reseteas a cero\
+\
+Histeresis\
+Calculas la salida total y limito entre ciclo y 0\
+Si (Salida>0) y ValorAbsoluto(Error)<Histeresis Entoces Salida=0.\
+\
+L\'edmite de acci\'f3n
+\b \
 \
 }
