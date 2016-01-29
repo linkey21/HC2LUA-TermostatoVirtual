@@ -4,9 +4,6 @@ function calculatePID()
   calculoDerivativo(currentTemp - lastInput, kD)
 end
 
-termostatoVirtual.value,
- termostatoVirtual.targetLevel, acumErr, lastInput, cycleTime, histeresis
-
 -- calcular error
 newErr = calculoError(termostatoVirtual.value, termostatoVirtual.targetLevel)
 local result
@@ -30,7 +27,7 @@ else -- acumulado normal
   error anterior ]]
   -- obtener el resultado
   result = calculatePID(newErr, acumErr, termostatoVirtual.value, lastInput,
-   kP, kI, kP)
+   kP, kI, kD)
    -- acumular error
   acumErr = acumErr + newErr
 end
