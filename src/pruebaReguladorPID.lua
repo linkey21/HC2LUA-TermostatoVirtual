@@ -82,23 +82,16 @@ end
   Inicializa variables --]]
 function Inicializar(thermostatId)
   local termostatoVirtual = getDevice(thermostatId)
-  -- Error: diferencia entre consigna y valor actual
-	local Err = 0
   -- temperatura en la iteracion anterior se inicia con la temperatura actual
 	local lastInput = termostatoVirtual.value
-  -- Suma error calculado se inicia a 0
-	local acumErr = 0
   -- instante hasta próximo ciclo, se inicia con el instante actual
   local cicloStamp = os.time()
   -- intante de cambio de estado de la Caldera, se inicia con el instante actual
   local changePoint = os.time()
-  -- resultado salida del PID. se inicia a 0
-  local result = 0
   -- valor de la temperatura de consigna, se inicia con la consigna actual
   local setPoint = termostatoVirtual.targetLevel
-
-	return minTimeAction, Err, lastInput, acumErr, cicloStamp,
-   changePoint, setPoint, result
+  -- devilver las variables inicializadas
+	return lastInput, cicloStamp, changePoint, setPoint
 end
 
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
@@ -112,8 +105,7 @@ toolKit:log(INFO, '-------------------------------------------------------')
  end
 
  -- Inicializar Variables
- local minTimeAction, Err, lastInput, acumErr, cicloStamp,
-  changePoint, setPoint, result = Inicializar(thermostatId)
+ local lastInput, cicloStamp, changePoint, setPoint = Inicializar(thermostatId)
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 while true do
@@ -121,20 +113,22 @@ while true do
   local termostatoVirtual = getDevice(thermostatId)
   toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
-  --[[comprobar cambio en la consigna setPoint--]]
-  -- si cambia la temperatura de consigna, interrupir el ciclo e iniciar un
-  -- nuevo ciclo dejando el estado del PID igual
+  --[[comprobar cambio en la consigna setPoint
+  si cambia la temperatura de consigna, interrupir el ciclo e iniciar un nuevo
+  ciclo dejando el estado del PID igual, TODO hacer reset antiwindup? ]]
   if setPoint ~= termostatoVirtual.targetLevel then
     toolKit:log(INFO, 'Cambio del valor de la temperatura de consigna')
     cicloStamp = os.time()
+    -- TODO hacer reset antiwindup
   end
 
-  --[[cálculo PID]]
-  -- comprobar si se ha cumplido un ciclo para volver a calcular el PID
+  --[[cálculo PID
+  comprobar si se ha cumplido un ciclo para volver a calcular el PID]]
   if os.time() >= cicloStamp then
     -- inicializar el PID
-    local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
-     integral = 0, derivativo = 0}
+    local PID = termostatoVirtual.PID
+    --local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
+    -- integral = 0, derivativo = 0}
     -- calcular error
     PID.newErr = termostatoVirtual.targetLevel - termostatoVirtual.value
 
@@ -167,7 +161,6 @@ while true do
     resultado al tiempo de ciclo y no se acumula el error]]
     if PID.integral > cycleTime then
       PID.integral = cycleTime
-      PID.acumErr = acumErr
       toolKit:log(INFO, 'antiwindup del integrador > '..cycleTime)
     end
 
@@ -203,22 +196,22 @@ while true do
     toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
     PID.integral..', D='..PID.derivativo..', S='..PID.result)
 
-    -- recordar algunas variables para el proximo ciclo
-    result, lastInput, acumErr = PID.result, termostatoVirtual.value,
-    PID.acumErr
+    -- recordar algunas variables para el proximo ciclo SE conservan en el PID
+    --result, lastInput, acumErr = PID.result, termostatoVirtual.value,
+    --PID.acumErr
     -- ajustar temperatura de consigna
     setPoint = termostatoVirtual.targetLevel
     -- ajustar el punto de cambio de estado de la Caldera
-    changePoint = os.time() + result
+    changePoint = os.time() + PID.result
     -- ajustar el nuevo instante de cálculo PID
     cicloStamp = os.time() + cycleTime
     -- añadir tiemstamp al PID
-    PID.timestamp = os.time(), result
+    PID.timestamp = os.time(), PID.result
     -- actualizar dispositivo
     termostatoVirtual.PID = PID
     fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
     -- informar y decir al termostato que actualice las gráficas
-    toolKit:log(INFO, 'Error acumulado: '..acumErr)
+    toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
     toolKit:log(INFO, '-------------------------------------------------------')
     -- actualizar las gráficas invocando al botón statusButton del termostato
     fibaro:call(thermostatId, "pressButton", "16")
