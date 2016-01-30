@@ -214,7 +214,7 @@ local termostatoVirtual = getDevice(_selfId)
 toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
 -- actualizar etiqueta identificador
-fibaro:call(_selfId, "setProperty", "ui.labelId.value", _selfId)
+fibaro:call(_selfId, "setProperty", "ui.labelId.value",'id: '.._selfId)
 
 --[[Panel]]
 -- obtener el panel
@@ -329,4 +329,4 @@ end
   end
 --end
 --fibaro:sleep(1000)
---🌛 🔧  🔥  🔘
+--🌛 🔧  🔥  🔘⏱ 📈

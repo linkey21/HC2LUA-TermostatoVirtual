@@ -136,71 +136,67 @@ while true do
     local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
      integral = 0, derivativo = 0}
     -- calcular error
-    PID.newErr = termostatoVirtual.value - termostatoVirtual.targetLevel
-    -- calcular proporcional, integral y derivativo (inicialmete)
+    PID.newErr = termostatoVirtual.targetLevel - termostatoVirtual.value
+
+    -- calcular proporcional
     PID.proporcional = PID.newErr * kP
-    PID.integral = PID.acumErr * kI
+
     -- anti derivative kick usar (currentTemp - lastInput) en lugar de error
     PID.derivativo = (termostatoVirtual.value - lastInput) * kD
-    -- obtener el resultado (inicialmente)
-    PID.result = PID.proporcional + PID.integral + PID.derivativo
 
     --[[reset del antiwindup
     si el error no esta comprendido dentro del ámbito de actuación del
     integrador, no se usa el cálculo integral y se acumula error = 0]]
-    if PID.newErr > antiwindupReset and PID.newErr < (0 - antiwindupReset) then
+    if math.abs(PID.newErr) > antiwindupReset then
       -- rectificar el resultado sin integrador
       PID.integral = 0
-      PID.result = PID.proporcional + PID.integral + PID.derivativo
       PID.acumErr = 0
-      toolKit:log(INFO, 'Ajuste por reset antiwindup')
+      toolKit:log(INFO, 'reset antiwindup del integrador ∓'..antiwindupReset)
+
+    --[[uso normal del integrador
+    se calcula el resultado con el error acumulado anterior y se acumula el
+    error actual al error anterior]]
+    else
+      -- calcular integral
+      PID.integral = PID.acumErr * kI
+      PID.acumErr = PID.acumErr + PID.newErr
+    end
 
     --[[antiwindup del integrador
     si el cálculo integral es mayor que el tiempo de ciclo, se ajusta el
     resultado al tiempo de ciclo y no se acumula el error]]
-    elseif PID.integral > cycleTime then
-      PID.integral = (cycleTime - (PID.proporcional + PID.derivativo))
-      PID.result = cycleTime
+    if PID.integral > cycleTime then
+      PID.integral = cycleTime
       PID.acumErr = acumErr
-      toolKit:log(INFO, 'Ajuste por windup del integrador')
-
-    --[[uso normal del integrador
-    se calcula el resultado con el error actual y se acumula al error anterior]]
-    else
-      PID.result = PID.proporcional + PID.integral + PID.derivativo
-      PID.acumErr = PID.acumErr + PID.newErr
+      toolKit:log(INFO, 'antiwindup del integrador > '..cycleTime)
     end
+
+    -- calcular salida
+    PID.result = PID.proporcional + PID.integral + PID.derivativo
 
     --[[antiwindup de la salida
     si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
     resultado al tiempo de ciclo y no se acumula el error]]
     if PID.result > cycleTime then
-      PID.integral = (cycleTime - (PID.proporcional + PID.derivativo))
       PID.result = cycleTime
-      PID.acumErr = acumErr
-      toolKit:log(INFO, 'Ajuste por windup de la salida alta')
+      toolKit:log(INFO, 'antiwindup salida > '..cycleTime)
     elseif PID.result < 0 then
-      PID.integral = (0 - (PID.proporcional + PID.derivativo))
       PID.result = 0
-      PID.acumErr = acumErr
-      toolKit:log(INFO, 'Ajuste por windup de la salida baja')
-    else
+      toolKit:log(INFO, 'antiwindup salida < 0')
+    end
 
-      --[[limitador por histeresis
-      si error es menor o igual que la histeresis limitar la salida a 0]]
-      if PID.result > 0 and math.abs(PID.newErr) < histeresis then
-        PID.result = 0
-        toolKit:log(INFO, 'Ajuste por histéresis: '..PID.newErr..' Salida: '..
-         PID.result..' = 0')
-      end
+    --[[limitador por histeresis
+    si error es menor o igual que la histeresis limitar la salida a 0]]
+    if PID.result > 0 and math.abs(PID.newErr) < histeresis then
+      PID.result = 0
+      toolKit:log(INFO, 'histéresis error ∓'..histeresis)
+    end
 
-      --[[límitador de acción mínima
-      si el resultado es menor que el tiempo mínimo de acción, ajustar a 0]]
-      if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then
-        PID.result = 0
-        toolKit:log(INFO, 'Ajuste por tiempo mínimo Salida: '..PID.result..
-         ' = 0')
-      end
+    --[[límitador de acción mínima
+    si el resultado es menor que el tiempo mínimo de acción, ajustar a 0]]
+    if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then
+      PID.result = 0
+      toolKit:log(INFO, 'tiempo salida ∓'..minTimeAction)
     end
 
     -- informar
