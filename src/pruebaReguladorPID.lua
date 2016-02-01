@@ -99,13 +99,13 @@ toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 toolKit:log(INFO, '-------------------------------------------------------')
 
- -- esperar hasta que exista el termostato
- while not getDevice(thermostatId) do
-   toolKit:log(DEBUG, 'Espeando por el termostato')
- end
+-- esperar hasta que exista el termostato
+while not getDevice(thermostatId) do
+  toolKit:log(DEBUG, 'Espeando por el termostato')
+end
 
- -- Inicializar Variables
- local lastInput, cicloStamp, changePoint, setPoint = Inicializar(thermostatId)
+-- Inicializar Variables
+local lastInput, cicloStamp, changePoint, setPoint = Inicializar(thermostatId)
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 while true do
