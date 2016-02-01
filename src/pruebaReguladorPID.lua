@@ -12,10 +12,10 @@
 local thermostatId = 598  -- id del termostato virtual
 local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 -- tiempo mínimo de para accionar calefacción por debajo del cual no se enciende
-local antiwindupReset = 1
+local antiwindupReset = 0.5
 local minTimeAction = 60
 local histeresis = 0.2    -- histeresis en grados
-local kP = 150 * 1.25     -- Proporcional
+local kP = 225     -- Proporcional
 local kI = 20             -- Integral
 local kD = 40             -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
@@ -115,11 +115,12 @@ while true do
 
   --[[comprobar cambio en la consigna setPoint
   si cambia la temperatura de consigna, interrupir el ciclo e iniciar un nuevo
-  ciclo dejando el estado del PID igual, TODO hacer reset antiwindup? ]]
+  ciclo dejando el estado del PID igual]]
   if setPoint ~= termostatoVirtual.targetLevel then
     toolKit:log(INFO, 'Cambio del valor de la temperatura de consigna')
     cicloStamp = os.time()
-    -- TODO hacer reset antiwindup
+    -- TODO resetear el integrador?
+    --termostatoVirtual.PID['acumErr'] = 0
   end
 
   --[[cálculo PID
@@ -135,13 +136,15 @@ while true do
     -- calcular proporcional
     PID.proporcional = PID.newErr * kP
 
-    -- anti derivative kick usar (currentTemp - lastInput) en lugar de error
-    PID.derivativo = (termostatoVirtual.value - lastInput) * kD
+    -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
+    -- lugar de error
+    PID.derivativo = ((termostatoVirtual.value - lastInput) * kD) * -1
 
     --[[reset del antiwindup
     si el error no esta comprendido dentro del ámbito de actuación del
     integrador, no se usa el cálculo integral y se acumula error = 0]]
-    if math.abs(PID.newErr) > antiwindupReset then
+    --if math.abs(PID.newErr) > antiwindupReset then
+    if PID.newErr <= antiwindupReset then
       -- rectificar el resultado sin integrador
       PID.integral = 0
       PID.acumErr = 0
@@ -180,17 +183,20 @@ while true do
 
     --[[limitador por histeresis
     si error es menor o igual que la histeresis limitar la salida a 0]]
-    if PID.result > 0 and math.abs(PID.newErr) < histeresis then
+    if PID.result > 0 and math.abs(PID.newErr) <= histeresis then
       PID.result = 0
       toolKit:log(INFO, 'histéresis error ∓'..histeresis)
     end
 
     --[[límitador de acción mínima
-    si el resultado es menor que el tiempo mínimo de acción, ajustar a 0]]
+    si el resultado es menor que el tiempo mínimo de acción, ajustar a 0.
+    si se va a encender menos del tiemp mínimo, no encender]]
     if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then
       PID.result = 0
       toolKit:log(INFO, 'tiempo salida ∓'..minTimeAction)
     end
+    --[[si se va a apgar menos de tiempo mínimo no apagar]]
+    -- elseif PID.result > (cycleTime - minTimeAction) then PID.result = cycleTime
 
     -- informar
     toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
