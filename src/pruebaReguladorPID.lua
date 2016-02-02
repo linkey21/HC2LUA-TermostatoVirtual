@@ -12,10 +12,10 @@
 local thermostatId = 598  -- id del termostato virtual
 local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 -- tiempo mínimo de para accionar calefacción por debajo del cual no se enciende
-local antiwindupReset = 0.5
+local antiwindupReset = 1
 local minTimeAction = 60
 local histeresis = 0.2  -- histeresis en grados
-local kP = 225          -- Proporcional
+local kP = 280          -- Proporcional
 local kI = 20           -- Integral
 local kD = 40           -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
@@ -128,7 +128,7 @@ while true do
   if os.time() >= cicloStamp then
     -- inicializar el PID
     local PID = termostatoVirtual.PID
-    
+
     --local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
     -- integral = 0, derivativo = 0}
     -- calcular error
@@ -144,8 +144,8 @@ while true do
     --[[reset del antiwindup
     si el error no esta comprendido dentro del ámbito de actuación del
     integrador, no se usa el cálculo integral y se acumula error = 0]]
-    --if math.abs(PID.newErr) > antiwindupReset then
-    if PID.newErr <= antiwindupReset then
+    if math.abs(PID.newErr) > antiwindupReset then
+    --if PID.newErr <= antiwindupReset then
       -- rectificar el resultado sin integrador
       PID.integral = 0
       PID.acumErr = 0

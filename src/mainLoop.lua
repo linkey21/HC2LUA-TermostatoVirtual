@@ -274,7 +274,7 @@ fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
 fibaro:call(_selfId, 'setProperty', "currentIcon", icono)
 
 --[[tiempo de protección]]
--- si el modo es no es OFF
+-- si el modo no es OFF
 if termostatoVirtual.mode ~= 0 then
   local shadowTime = termostatoVirtual.timestamp - os.time()
   if shadowTime <= 0 then
@@ -332,4 +332,4 @@ end
   end
 --end
 --fibaro:sleep(1000)
---🌛 🔧  🔥  🔘⏱ 📈
+--🌛🔧🌡🔥🔘⏱📈
