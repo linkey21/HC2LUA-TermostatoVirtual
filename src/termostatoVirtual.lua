@@ -92,27 +92,9 @@ end
   devuelve el panel de calefacción que controla la habitación donde se encuentra
   el disposito virtual con identificador nodeId --]]
 function getPanel(roomId)
-  toolKit:log(DEBUG, 'roomId: '..roomId)
-  -- obtener paneles de temperatura
-  if not HC2 then HC2 = Net.FHttp("127.0.0.1", 11111) end
-  response ,status, errorCode = HC2:GET("/api/panels/heating")
-  -- recorrer la tabla de paneles y buscar si alguno controla esta habitación
-  local panels = json.decode(response)
-  for pKey, pValue in pairs(panels) do
-    toolKit:log(DEBUG, 'Panel: '..pValue.id)
-    -- obtener panel
-    if not HC2 then HC2 = Net.FHttp("127.0.0.1", 11111) end
-    response ,status, errorCode = HC2:GET("/api/panels/heating/"..pValue.id)
-    local panel = json.decode(response)
-    local rooms = panel['properties'].rooms
-    -- recorrer las habitaciones de cada panel
-    for rKey, rValue in pairs(rooms) do
-      toolKit:log(DEBUG, 'Room: '..rValue)
-      if rValue == roomId then return panel end
-    end
-  end
-  return false
+
 end
+
 
 --[[getTargetLevel(panel)
     (table) panel: tabla que representa un panel de temperatura
@@ -139,7 +121,7 @@ function getTargetLevel(panel)
   -- obtener la tabla con propiedades del día de la semana
   local todayTab = properties[dow]
 
-  -- obtenr día de la semana de fue ayer
+  -- obtener día de la semana de fue ayer
   dow = string.lower(tostring(os.date('%A', os.time() - 24*60*60 )))
   toolKit:log(DEBUG, 'Ayer fue: '..dow)
   -- obtener tabla con propiedades de ayer
@@ -216,10 +198,10 @@ end
 --[[updateVirtualDev()
   (table) virtualThermostat: tabla que representa el termostato virtual
   ]]
-function updateVirtualDev(virtualThermostat)
+function updateVirtualDev(virtualThermostat, panel)
   --[[Panel]]
   -- obtener el panel
-  local panel = getPanel(fibaro:getRoomID(virtualThermostat.nodeId))
+  --local panel = getPanel(fibaro:getRoomID(virtualThermostat.nodeId))
   if panel then
     toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
     -- actualizar dispositivo
@@ -272,6 +254,7 @@ function updateVirtualLayout(virtualThermostat)
   local icono = iconOFF
   local targetLevel = tonumber(getDevice(virtualThermostat.nodeId).targetLevel)
   local value = tonumber(getDevice(virtualThermostat.nodeId).value)
+  local shadowTime = virtualThermostat.timestamp - os.time()
   if virtualThermostat.oN then
     onOff = ' 🔥'
     icono = iconON
@@ -309,6 +292,11 @@ function updateVirtualLayout(virtualThermostat)
   fibaro:call(thermostatId, "setProperty", "ui.timeLabel.value", timeLabel)
 end
 
+--[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
+function _main(data)
+  panel = json.decode(data)
+end
+
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
 toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
@@ -317,149 +305,157 @@ toolKit:log(INFO, '-------------------------------------------------------')
 -- Inicializar Variables
 local lastInput, cicloStamp, changePoint, setPoint = Inicializar(thermostatId)
 
---[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
-while true do
-  ---- recuperar o iniciar dispositivo y actualizar valores
-  local virtualThermostat = updateVirtualDev(getDevice(thermostatId))
-  -- guardar dispositivo en variable global
-  fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
-  -- actualizar icono y etiquetas
-  updateVirtualLayout(virtualThermostat)
-  toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(virtualThermostat))
+httpClient = net.HTTPClient()
+httpClient:request('http://127.0.0.1:11111/api/panels/heating/534',
+ {success = function(response)
+   panel = json.decode(response.data)
+   while true do
+     ---- recuperar o iniciar dispositivo y actualizar valores
+     local virtualThermostat = updateVirtualDev(getDevice(thermostatId), panel)
+     -- guardar dispositivo en variable global
+     fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
+     -- actualizar icono y etiquetas
+     updateVirtualLayout(virtualThermostat)
+     toolKit:log(DEBUG, 'virtualThermostat: '..json.encode(virtualThermostat))
 
-  --[[comprobar cambio en la consigna setPoint
-  si cambia la temperatura de consigna, interrupir el ciclo e iniciar un nuevo
-  ciclo dejando el estado del PID igual]]
-  if setPoint ~= virtualThermostat.targetLevel then
-    toolKit:log(INFO, 'Cambio del valor de la temperatura de consigna')
-    cicloStamp = os.time()
-    -- TODO resetear el integrador?
-    --virtualThermostat.PID['acumErr'] = 0
-  end
+     --[[comprobar cambio en la consigna setPoint
+     si cambia la temperatura de consigna, interrupir el ciclo e iniciar un nuevo
+     ciclo dejando el estado del PID igual]]
+     if setPoint ~= virtualThermostat.targetLevel then
+       toolKit:log(INFO, 'Cambio del valor de la temperatura de consigna')
+       cicloStamp = os.time()
+       -- TODO resetear el integrador?
+       --virtualThermostat.PID['acumErr'] = 0
+     end
 
-  --[[cálculo PID
-  comprobar si se ha cumplido un ciclo para volver a calcular el PID]]
-  if os.time() >= cicloStamp then
-    -- inicializar el PID
-    local PID = virtualThermostat.PID
-    --local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
-    -- integral = 0, derivativo = 0}
-    -- calcular error
-    PID.newErr = virtualThermostat.targetLevel - virtualThermostat.value
+     --[[cálculo PID
+     comprobar si se ha cumplido un ciclo para volver a calcular el PID]]
+     if os.time() >= cicloStamp then
+       -- inicializar el PID
+       local PID = virtualThermostat.PID
+       --local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
+       -- integral = 0, derivativo = 0}
+       -- calcular error
+       PID.newErr = virtualThermostat.targetLevel - virtualThermostat.value
 
-    -- calcular proporcional
-    PID.proporcional = PID.newErr * kP
+       -- calcular proporcional
+       PID.proporcional = PID.newErr * kP
 
-    -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
-    -- lugar de error
-    PID.derivativo = ((virtualThermostat.value - lastInput) * kD) * -1
+       -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
+       -- lugar de error
+       PID.derivativo = ((virtualThermostat.value - lastInput) * kD) * -1
 
-    --[[reset del antiwindup
-    si el error no esta comprendido dentro del ámbito de actuación del
-    integrador, no se usa el cálculo integral y se acumula error = 0]]
-    --if math.abs(PID.newErr) > antiwindupReset then
-    if PID.newErr <= antiwindupReset then
-      -- rectificar el resultado sin integrador
-      PID.integral = 0
-      PID.acumErr = 0
-      toolKit:log(INFO, 'reset antiwindup del integrador ∓'..antiwindupReset)
+       --[[reset del antiwindup
+       si el error no esta comprendido dentro del ámbito de actuación del
+       integrador, no se usa el cálculo integral y se acumula error = 0]]
+       --if math.abs(PID.newErr) > antiwindupReset then
+       if PID.newErr <= antiwindupReset then
+         -- rectificar el resultado sin integrador
+         PID.integral = 0
+         PID.acumErr = 0
+         toolKit:log(INFO, 'reset antiwindup del integrador ∓'..antiwindupReset)
 
-    --[[uso normal del integrador
-    se calcula el resultado con el error acumulado anterior y se acumula el
-    error actual al error anterior]]
-    else
-      -- calcular integral
-      PID.integral = PID.acumErr * kI
-      PID.acumErr = PID.acumErr + PID.newErr
-    end
+       --[[uso normal del integrador
+       se calcula el resultado con el error acumulado anterior y se acumula el
+       error actual al error anterior]]
+       else
+         -- calcular integral
+         PID.integral = PID.acumErr * kI
+         PID.acumErr = PID.acumErr + PID.newErr
+       end
 
-    --[[antiwindup del integrador
-    si el cálculo integral es mayor que el tiempo de ciclo, se ajusta el
-    resultado al tiempo de ciclo y no se acumula el error]]
-    if PID.integral > cycleTime then
-      PID.integral = cycleTime
-      toolKit:log(INFO, 'antiwindup del integrador > '..cycleTime)
-    end
+       --[[antiwindup del integrador
+       si el cálculo integral es mayor que el tiempo de ciclo, se ajusta el
+       resultado al tiempo de ciclo y no se acumula el error]]
+       if PID.integral > cycleTime then
+         PID.integral = cycleTime
+         toolKit:log(INFO, 'antiwindup del integrador > '..cycleTime)
+       end
 
-    -- calcular salida
-    PID.result = PID.proporcional + PID.integral + PID.derivativo
+       -- calcular salida
+       PID.result = PID.proporcional + PID.integral + PID.derivativo
 
-    --[[antiwindup de la salida
-    si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
-    resultado al tiempo de ciclo y no se acumula el error]]
-    if PID.result > cycleTime then
-      PID.result = cycleTime
-      toolKit:log(INFO, 'antiwindup salida > '..cycleTime)
-    elseif PID.result < 0 then
-      PID.result = 0
-      toolKit:log(INFO, 'antiwindup salida < 0')
-    end
+       --[[antiwindup de la salida
+       si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
+       resultado al tiempo de ciclo y no se acumula el error]]
+       if PID.result > cycleTime then
+         PID.result = cycleTime
+         toolKit:log(INFO, 'antiwindup salida > '..cycleTime)
+       elseif PID.result < 0 then
+         PID.result = 0
+         toolKit:log(INFO, 'antiwindup salida < 0')
+       end
 
-    --[[limitador por histeresis
-    si error es menor o igual que la histeresis limitar la salida a 0]]
-    if PID.result > 0 and math.abs(PID.newErr) <= histeresis then
-      PID.result = 0
-      toolKit:log(INFO, 'histéresis error ∓'..histeresis)
-    end
+       --[[limitador por histeresis
+       si error es menor o igual que la histeresis limitar la salida a 0]]
+       if PID.result > 0 and math.abs(PID.newErr) <= histeresis then
+         PID.result = 0
+         toolKit:log(INFO, 'histéresis error ∓'..histeresis)
+       end
 
-    --[[límitador de acción mínima
-    si el resultado es menor que el tiempo mínimo de acción, ajustar a 0.
-    si se va a encender menos del tiemp mínimo, no encender]]
-    if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then
-      PID.result = 0
-      toolKit:log(INFO, 'tiempo salida ∓'..minTimeAction)
-    end
-    --[[si se va a apgar menos de tiempo mínimo no apagar]]
-    -- elseif PID.result > (cycleTime - minTimeAction) then PID.result = cycleTime
+       --[[límitador de acción mínima
+       si el resultado es menor que el tiempo mínimo de acción, ajustar a 0.
+       si se va a encender menos del tiemp mínimo, no encender]]
+       if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then
+         PID.result = 0
+         toolKit:log(INFO, 'tiempo salida ∓'..minTimeAction)
+       end
+       --[[si se va a apgar menos de tiempo mínimo no apagar]]
+       -- elseif PID.result > (cycleTime - minTimeAction) then PID.result = cycleTime
 
-    -- informar
-    toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
-    PID.integral..', D='..PID.derivativo..', S='..PID.result)
+       -- informar
+       toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
+       PID.integral..', D='..PID.derivativo..', S='..PID.result)
 
-    -- recordar algunas variables para el proximo ciclo SE conservan en el PID
-    --result, lastInput, acumErr = PID.result, virtualThermostat.value,
-    --PID.acumErr
-    -- ajustar temperatura de consigna
-    setPoint = virtualThermostat.targetLevel
-    -- ajustar el punto de cambio de estado de la Caldera
-    changePoint = os.time() + PID.result
-    -- ajustar el nuevo instante de cálculo PID
-    cicloStamp = os.time() + cycleTime
-    -- añadir tiemstamp al PID
-    PID.timestamp = os.time(), PID.result
-    -- actualizar dispositivo
-    virtualThermostat.PID = PID
-    fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
-    -- informar y decir al termostato que actualice las gráficas
-    toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
-    toolKit:log(INFO, '-------------------------------------------------------')
-    -- actualizar las gráficas invocando al botón statusButton del termostato
-    fibaro:call(thermostatId, "pressButton", "16")
-  end
---[[--------------------------------------------------------------------------]]
+       -- recordar algunas variables para el proximo ciclo SE conservan en el PID
+       --result, lastInput, acumErr = PID.result, virtualThermostat.value,
+       --PID.acumErr
+       -- ajustar temperatura de consigna
+       setPoint = virtualThermostat.targetLevel
+       -- ajustar el punto de cambio de estado de la Caldera
+       changePoint = os.time() + PID.result
+       -- ajustar el nuevo instante de cálculo PID
+       cicloStamp = os.time() + cycleTime
+       -- añadir tiemstamp al PID
+       PID.timestamp = os.time(), PID.result
+       -- actualizar dispositivo
+       virtualThermostat.PID = PID
+       fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
+       -- informar y decir al termostato que actualice las gráficas
+       toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
+       toolKit:log(INFO, '-------------------------------------------------------')
+       -- actualizar las gráficas invocando al botón statusButton del termostato
+       fibaro:call(thermostatId, "pressButton", "16")
+     end
+   --[[--------------------------------------------------------------------------]]
 
-  --[[encendido / apagado]]
-  -- si no se ha llegado al punto de cambio encender
-  if os.time() < changePoint then
-    if not virtualThermostat.oN then
-      virtualThermostat.oN = true
-      -- actualizar dispositivo
-      fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
-      -- informar
-      toolKit:log(INFO, 'ON')
-      -- actuar sobre el actuador si es preciso
-      setActuador(termostatoVirtual.actuatorId, true)
-    end
-  else -- si la salida es mayor que el tiempo desde que se encendió, apagar
-    if virtualThermostat.oN then
-      virtualThermostat.oN = false
-      -- actualizar dispositivo
-      fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
-      -- informar
-      toolKit:log(INFO, 'OFF')
-      -- actuar sobre el actuador si es preciso
-      setActuador(termostatoVirtual.actuatorId, false)
-    end
-  end
-
-end
+     --[[encendido / apagado]]
+     -- si no se ha llegado al punto de cambio encender
+     if os.time() < changePoint then
+       if not virtualThermostat.oN then
+         virtualThermostat.oN = true
+         -- actualizar dispositivo
+         fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
+         -- informar
+         toolKit:log(INFO, 'ON')
+         -- actuar sobre el actuador si es preciso
+         setActuador(virtualThermostat.actuatorId, true)
+       end
+     else -- si la salida es mayor que el tiempo desde que se encendió, apagar
+       if virtualThermostat.oN then
+         virtualThermostat.oN = false
+         -- actualizar dispositivo
+         fibaro:setGlobal('dev'..thermostatId, json.encode(virtualThermostat))
+         -- informar
+         toolKit:log(INFO, 'OFF')
+         -- actuar sobre el actuador si es preciso
+         setActuador(virtualThermostat.actuatorId, false)
+       end
+     end
+   end
+ end,
+ error = function(err)
+   fibaro:call(608, "setProperty", "ui.labelId.value",'id: ERROR')
+   print('3')
+ end
+})

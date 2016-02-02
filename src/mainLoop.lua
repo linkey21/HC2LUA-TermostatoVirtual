@@ -74,7 +74,7 @@ function resetDevice(nodeId)
   end
   -- crear tabla vacía para dispositivo
   local PID = {result = 0, newErr = 0, acumErr = 0, proporcional = 0,
-   integral = 0, derivativo = 0}
+   integral = 0, derivativo = 0, lastInput = 0}
   local termostatoVirtual = {PID = PID, nodeId = nodeId, panelId = 0,
    probeId = 0, targetLevel = 0, value = 0, mode = 1, timestamp = os.time(),
    oN=false}

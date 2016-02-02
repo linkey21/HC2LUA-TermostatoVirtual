@@ -14,10 +14,10 @@ local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 -- tiempo mínimo de para accionar calefacción por debajo del cual no se enciende
 local antiwindupReset = 0.5
 local minTimeAction = 60
-local histeresis = 0.2    -- histeresis en grados
-local kP = 225     -- Proporcional
-local kI = 20             -- Integral
-local kD = 40             -- Derivativo
+local histeresis = 0.2  -- histeresis en grados
+local kP = 225          -- Proporcional
+local kI = 20           -- Integral
+local kD = 40           -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -128,6 +128,7 @@ while true do
   if os.time() >= cicloStamp then
     -- inicializar el PID
     local PID = termostatoVirtual.PID
+    
     --local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
     -- integral = 0, derivativo = 0}
     -- calcular error
@@ -138,7 +139,7 @@ while true do
 
     -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
     -- lugar de error
-    PID.derivativo = ((termostatoVirtual.value - lastInput) * kD) * -1
+    PID.derivativo = ((termostatoVirtual.value - PID.lastInput) * kD) * -1
 
     --[[reset del antiwindup
     si el error no esta comprendido dentro del ámbito de actuación del
@@ -205,6 +206,7 @@ while true do
     -- recordar algunas variables para el proximo ciclo SE conservan en el PID
     --result, lastInput, acumErr = PID.result, termostatoVirtual.value,
     --PID.acumErr
+    PID.lastInput = termostatoVirtual.value
     -- ajustar temperatura de consigna
     setPoint = termostatoVirtual.targetLevel
     -- ajustar el punto de cambio de estado de la Caldera
