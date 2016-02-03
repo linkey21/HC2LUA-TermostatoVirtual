@@ -20,6 +20,20 @@ local kI = 20           -- Integral
 local kD = 40           -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
+--[[CALIBRADO
+comenzamos el calibrado en (t) ponemos la salida = cliclo máximo durante una
+hora (th) para hayar el incremento de termperatura producido desde (t) a (th).
+[ih = th - t]
+una vez se alcanza la hora, poner salida = 0 comprobar la temperatura (t)h hasta
+que comience a bajar (thh) para averiguar la inercia térmica [iT = thh - th]
+
+kP = cycleTime / (ih)
+kI = cycleTime / (ih * (15 / ih))
+KD = cycleTime / (ih * (30 / ih))
+histeresis = iT
+antiwindupReset = histeresis + (cycleTime / 3000)
+]]
+
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 -- si se inicia otra escena esta se suicida
 if fibaro:countScenes() > 1 then
