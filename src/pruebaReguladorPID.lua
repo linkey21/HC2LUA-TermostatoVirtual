@@ -15,24 +15,10 @@ local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 local antiwindupReset = 1
 local minTimeAction = 60
 local histeresis = 0.2  -- histeresis en grados
-local kP = 280          -- Proporcional
+local kP = 300          -- Proporcional
 local kI = 20           -- Integral
 local kD = 40           -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
-
---[[CALIBRADO
-comenzamos el calibrado en (t) ponemos la salida = cliclo máximo durante una
-hora (th) para hayar el incremento de termperatura producido desde (t) a (th).
-[ih = th - t]
-una vez se alcanza la hora, poner salida = 0 comprobar la temperatura (t)h hasta
-que comience a bajar (thh) para averiguar la inercia térmica [iT = thh - th]
-
-kP = cycleTime / (ih)
-kI = cycleTime / (ih * (15 / ih))
-KD = cycleTime / (ih * (30 / ih))
-histeresis = iT
-antiwindupReset = histeresis + (cycleTime / 3000)
-]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 -- si se inicia otra escena esta se suicida
@@ -126,6 +112,26 @@ while true do
   -- recuperar dispositivo
   local termostatoVirtual = getDevice(thermostatId)
   toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
+
+  --[[ Comprobar si el termostato está en modo calibración]]
+  if termostatoVirtual.mode > 2 then
+    -- se detiene el PID hasta que finaliza el calibrado
+    cicloStamp = os.time() + 10
+    -- si estamos en fase 1 del calibrado, el punto de encendido de la caldera
+    -- finaliza después del tiempo de calibrado
+    if termostatoVirtual.mode == 3 then
+      changePoint = os.time() + 10
+    elseif termostatoVirtual.mode == 4 then -- Fase 2 del calibrado
+      changePoint = os.time() - 10
+    else -- finaliza el calibrado
+      -- poner el termostato en modo AUTO
+      termostatoVirtual.mode = 1
+      -- actualizar dispositivo
+      fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
+      -- inicializar el PID
+      lastInput, cicloStamp, changePoint, setPoint = Inicializar(thermostatId)
+    end
+  end
 
   --[[comprobar cambio en la consigna setPoint
   si cambia la temperatura de consigna, interrupir el ciclo e iniciar un nuevo

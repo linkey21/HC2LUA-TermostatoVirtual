@@ -21,6 +21,7 @@ end
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
+mode[3]='CALIBRADO_F1'; mode[4]='CALIBRADO_F2'; mode[5]='CALIBRADO_FIN'
 if not oN then oN = true end
 if not timestampPID then timestampPID = os.time() end
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
@@ -274,8 +275,8 @@ fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
 fibaro:call(_selfId, 'setProperty', "currentIcon", icono)
 
 --[[tiempo de protección]]
--- si el modo no es OFF
-if termostatoVirtual.mode ~= 0 then
+-- si el modo no es OFF ni calibrando OFF=0 CALIBRANDO>=3
+if termostatoVirtual.mode > 0 and termostatoVirtual.mode < 3 then
   local shadowTime = termostatoVirtual.timestamp - os.time()
   if shadowTime <= 0 then
     shadowTime = 0
@@ -312,6 +313,10 @@ if termostatoVirtual.mode ~= 0 then
   end
   -- actualizar etiqueta de tiempo
   fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
+else
+  -- actualizar etiqueda de modo de funcionamiento "mode"
+  fibaro:call(_selfId, "setProperty", "ui.modeLabel.value",
+   mode[termostatoVirtual.mode])
 end
 
 --[[encendido / apagado]]
