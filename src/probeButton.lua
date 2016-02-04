@@ -53,7 +53,7 @@ for key, value in pairs(devices) do
   end
 end
 -- añadir sonda virtual
-local temperatureSensor = {id = 0, name = '🔧Sonda Virtual'}
+local temperatureSensor = {id = 0, name = 'Sonda Virtual'}
 table.insert(temperatureSensors, temperatureSensor)
 
 -- seleccionar el siguiete sensor que corresponda

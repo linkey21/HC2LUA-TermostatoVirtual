@@ -1,9 +1,6 @@
+--
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-local controlPanelId = 598
 
---[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
--- ID de este dispositivo virtual
-if not _selfId then _selfId = fibaro:getSelfId() end
 
 --[[isVariable(varName)
     (string) varName: nombre de la variable global
@@ -32,13 +29,27 @@ function getDevice(nodeId)
   return false
 end
 
--- actualizar etiqueta identificador
-fibaro:call(_selfId, "setProperty", "ui.idLabel.value", 'Termostato: '
- ..controlPanelId..' -- id: '.._selfId)
+-- obtener etiqueta actual
+local kLabel = fibaro:get(fibaro:getSelfId(), 'ui.KLabel.value')
+local actualCycle = tonumber(string.sub(kLabel, string.find(kLabel, 'c/h=')+ 4))
+kLabel = string.sub(kLabel, 1, string.find(kLabel, 'c/h=') + 3)
+-- obtener id del termostato
+local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
+local p2 = string.find(idLabel, ' --')
+local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
+-- aumentar ciclo
+if actualCycle < 12 then
+  actualCycle = actualCycle * 2
+else
+  actualCycle = 3
+end
 -- recuperar dispositivo
-local termostatoVirtual = getDevice(controlPanelId)
+local termostatoVirtual = getDevice(thermostatId)
 local K = termostatoVirtual.K
-if not K.cyclesH then K.cyclesH = 3 end
+K.cyclesH = actualCycle
+-- actualizar dispositivo
+fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 -- actualizar etiqueta K
-fibaro:call(_selfId, "setProperty", "ui.KLabel.value", 'Kp='..K.kP..' Ki='
- ..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)
+fibaro:call(fibaro:getSelfId(), "setProperty", "ui.KLabel.value",
+ kLabel..actualCycle)
+ --
