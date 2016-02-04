@@ -12,12 +12,12 @@
 local thermostatId = 598  -- id del termostato virtual
 local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 -- tiempo mínimo de para accionar calefacción por debajo del cual no se enciende
-local antiwindupReset = 1
+local antiwindupReset = 0.94
 local minTimeAction = 60
-local histeresis = 0.2  -- histeresis en grados
-local kP = 300          -- Proporcional
-local kI = 20           -- Integral
-local kD = 40           -- Derivativo
+local histeresis = 0.64  -- histeresis en grados
+local kP = 465          -- Proporcional
+local kI = 31           -- Integral
+local kD = 62           -- Derivativo
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]

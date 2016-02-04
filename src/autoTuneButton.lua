@@ -4,7 +4,7 @@
 	por Manuel Pascual
 ------------------------------------------------------------------------------]]
 
-local tuneTime = 60     -- segundos que dura la pruena de calentamiento
+local tuneTime = 3600     -- segundos que dura la pruena de calentamiento
 local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
@@ -69,6 +69,7 @@ if termostatoVirtual.mode < 3 then
   -- inicializar variable de instante de fin de calibrado
   tuneStamp = os.time() + tuneTime
   -- medir teperatura mientras transcurre el periodo de calibrado fase 1
+  fibaro:debug('t = '..th)
   while os.time() <= tuneStamp do
     -- recuperar dispositivo
     termostatoVirtual = getDevice(_selfId)
@@ -82,17 +83,29 @@ if termostatoVirtual.mode < 3 then
   fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
   -- inicializar temperatura de inercia
   local thh = th
-  -- mientras la temperatura de la sonda no descienda tomar temperatura de inercia
-  while termostatoVirtual.value >= th do
+  -- mientras la temperatura de la sonda no descienda tomar temperatura de
+  -- inercia como máximo durante la mitad del tiempo de calibrado
+  tuneStamp = os.time() + (tuneTime / 2)
+  while termostatoVirtual.value >= th and os.time() <= tuneStamp do
     thh = termostatoVirtual.value
     -- recuperar dispositivo
     termostatoVirtual = getDevice(_selfId)
   end
-  K.kP = cycleTime / (ih)
-  K.kI = cycleTime / (ih * (15 / (th - t)))
-  K.kP = cycleTime / (ih * (30 / (th - t)))
+  fibaro:debug('thh = '..thh)
+
   K.histeresis = thh - th
-  K.antiwindupReset = K.histeresis + (cycleTime / 3000)
+  K.antiwindupReset = K.histeresis + (cycleTime / 2000)
+  fibaro:debug('histeresis='..K.histeresis..' antiwindupReset='
+  ..K.antiwindupReset )
+  local ih = thh - t
+  -- evitar error division por 0
+  if ih == 0 then ih = 1 end
+  fibaro:debug('th = '..th)
+  K.kP = math.floor(cycleTime / ih)
+  K.kI = math.floor(cycleTime / (ih * 15))
+  K.kD = K.kI * 2
+  fibaro:debug('kP='..K.kP..' kI='..K.kI..' kD='..K.kD)
+
   -- guardar resultado
   termostatoVirtual.K = K
 end
