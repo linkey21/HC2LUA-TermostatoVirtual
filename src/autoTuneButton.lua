@@ -4,11 +4,14 @@
 	por Manuel Pascual
 ------------------------------------------------------------------------------]]
 
-local tuneTime = 3600     -- segundos que dura la pruena de calentamiento
+local tuneTime = 60    -- segundos que dura la pruena de calentamiento
 local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
-local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
+-- obtener id del termostato
+local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
+local p2 = string.find(idLabel, ' --')
+local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 mode[3]='CALIBRADO_F1'; mode[4]='CALIBRADO_F2'; mode[5]='CALIBRADO_FIN'
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
@@ -55,7 +58,7 @@ antiwindupReset = histeresis + (cycleTime / 3000)
 ]]
 
 -- recuperar dispositivo
-termostatoVirtual = getDevice(_selfId)
+local termostatoVirtual = getDevice(thermostatId)
 -- si no está calibrando previamente comenzar el calibrado
 if termostatoVirtual.mode < 3 then
   fibaro:debug('Comienza calibrado Fase 1...')
@@ -63,7 +66,7 @@ if termostatoVirtual.mode < 3 then
   local K = {tuneTime = tuneTime}; termostatoVirtual.K = K
   termostatoVirtual.mode = 3
   -- actualizar dispositivo
-  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+  fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
   -- inicializar temperatura inicial y temperatura tras tiempo de calibrado
   local t = termostatoVirtual.value; local th = t
   -- inicializar variable de instante de fin de calibrado
@@ -72,7 +75,7 @@ if termostatoVirtual.mode < 3 then
   fibaro:debug('t = '..th)
   while os.time() <= tuneStamp do
     -- recuperar dispositivo
-    termostatoVirtual = getDevice(_selfId)
+    termostatoVirtual = getDevice(thermostatId)
     th = termostatoVirtual.value
   end
 
@@ -80,7 +83,7 @@ if termostatoVirtual.mode < 3 then
   -- poner el PID en modo autoTune Fase 2
   termostatoVirtual.mode = 4
   -- actualizar dispositivo
-  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+  fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
   -- inicializar temperatura de inercia
   local thh = th
   -- mientras la temperatura de la sonda no descienda tomar temperatura de
@@ -89,7 +92,7 @@ if termostatoVirtual.mode < 3 then
   while termostatoVirtual.value >= th and os.time() <= tuneStamp do
     thh = termostatoVirtual.value
     -- recuperar dispositivo
-    termostatoVirtual = getDevice(_selfId)
+    termostatoVirtual = getDevice(thermostatId)
   end
   fibaro:debug('thh = '..thh)
 
@@ -115,4 +118,4 @@ fibaro:debug('Finaliza calibrado')
 termostatoVirtual.mode = 5
 
 -- actualizar dispositivo
-fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
