@@ -194,8 +194,8 @@ while true do
     --[[antiwindup de la salida
     si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
     resultado al tiempo de ciclo y no se acumula el error]]
-    if PID.result > cycleTime then
-      PID.result = cycleTime
+    if PID.result >= cycleTime then
+      PID.result = cycleTime - 60 -- al menos apgar 1 minuto cada ciclo
       toolKit:log(INFO, 'antiwindup salida > '..cycleTime)
     elseif PID.result < 0 then
       PID.result = 0
