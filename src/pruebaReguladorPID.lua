@@ -193,9 +193,9 @@ while true do
 
     --[[antiwindup de la salida
     si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
-    resultado al tiempo de ciclo y no se acumula el error]]
+    resultado al tiempo de ciclo meno tiempo mínimo y no se acumula el error]]
     if PID.result >= cycleTime then
-      PID.result = cycleTime - 60 -- al menos apgar 1 minuto cada ciclo
+      PID.result = cycleTime - minTimeAction -- al menos apgar tiempo mínimo
       toolKit:log(INFO, 'antiwindup salida > '..cycleTime)
     elseif PID.result < 0 then
       PID.result = 0
@@ -217,9 +217,10 @@ while true do
     if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then
       PID.result = 0
       toolKit:log(INFO, 'tiempo salida ∓'..minTimeAction)
-    end
     --[[si se va a apgar menos de tiempo mínimo no apagar]]
-    -- elseif PID.result > (cycleTime - minTimeAction) then PID.result = cycleTime
+    elseif PID.result > (cycleTime - minTimeAction) then
+      PID.result = cycleTime
+    end
 
     -- informar
     toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
