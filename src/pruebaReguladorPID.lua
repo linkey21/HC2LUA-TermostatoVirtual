@@ -203,8 +203,10 @@ while true do
     end
 
     --[[limitador por histeresis
-    si error es menor o igual que la histeresis limitar la salida a 0]]
-    if PID.result > 0 and math.abs(PID.newErr) <= histeresis then
+    si error es menor o igual que la histeresis limitar la salida a 0, siempre
+    que la tempeatura venga subiendo, no limitar hoteresis de bajada]]
+    if PID.result > 0 and math.abs(PID.newErr) <= histeresis and
+     PID.lastInput < termostatoVirtual.value then -- solo de subida
       PID.result = 0
       toolKit:log(INFO, 'histéresis error ∓'..histeresis)
     end
