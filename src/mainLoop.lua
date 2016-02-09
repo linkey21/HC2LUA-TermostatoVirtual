@@ -12,7 +12,7 @@ local iconOFF = 1066
 -- continuación de 'return' el código o expresión para obtener la temperatura
 local virtualProbe = function (self, ...)
   local t = fibaro:getValue(389, 'value')
-  return math.floor((t - (30 / t)) * 100) / 100
+  return math.floor((t - ((41 - t) / t)) * 100) / 100
 end
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
