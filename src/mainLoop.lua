@@ -223,12 +223,17 @@ fibaro:call(_selfId, "setProperty", "ui.labelId.value",'id: '.._selfId)
 --[[Panel]]
 -- obtener el panel
 local panel = getPanel(fibaro:getRoomID(_selfId))
+-- si hay panel de calefacción para la habitación donde está el termostato
 if panel then
   toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
-  -- actualizar dispositivo
+  -- actualizar identificador del panel
   termostatoVirtual.panelId = panel.id
-  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+else -- si no hay panel
+  -- cambiar el modo a MANUAL y el identificador de panel a 0
+  termostatoVirtual.panelId = 0
 end
+-- actualizar dispositivo
+fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
 
 --[[temperarura actual]]
 -- si hay sonda declarada obtener la temperatura
@@ -241,10 +246,11 @@ elseif termostatoVirtual.probeId == 0 then
 end
 
 --[[temperarura de consigna]]
--- comparar timestamp con os.time() y comprobar mode termostatoVirtual.timestamp
-if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.mode ~= 0
+-- comparar timestamp con os.time() y comprobar si hay panel
+if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.panelId ~= 0
+ and termostatoVirtual.mode ~= 0 
  then
-  -- si es menor y status no es OFF, tomar temperatura del panel
+  -- si es menor y status es AUTOMATICO, tomar temperatura del panel
   targetLevel = getTargetLevel(panel)
   toolKit:log(DEBUG, 'Temperatura consigna: '..targetLevel..'ºC')
 end
@@ -278,13 +284,14 @@ fibaro:call(_selfId, 'setProperty', "currentIcon", icono)
 -- si el modo no es OFF ni calibrando OFF=0 CALIBRANDO>=3
 if termostatoVirtual.mode > 0 and termostatoVirtual.mode < 3 then
   local shadowTime = termostatoVirtual.timestamp - os.time()
-  if shadowTime <= 0 then
+  -- si ha finalizado el tiempo de proteccion y hay panel
+  if shadowTime <= 0 and termostatoVirtual.panelId ~= 0 then
     shadowTime = 0
-    -- actualizar estado del dispositivo
+    -- actualizar el modo de funcionamiento a AUTOMATICO
     termostatoVirtual.mode = 1
   else
     shadowTime = shadowTime / 60
-    -- actualizar estado del dispositivo
+    -- actualizar el modo de funcionamiento a MANUAL
     termostatoVirtual.mode = 2
   end
   -- actualizar dispositivo

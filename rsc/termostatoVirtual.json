@@ -1,30 +1,14 @@
-{
-  "panelId":534,
+{"panelId":534,
   "K":{
-    "cyclesH":6,
+    "kP":454,
     "kI":30,
     "kD":60,
     "tuneTime":5400,
     "minTimeAction":60,
-    "histeresis":0.64,
-    "antiwindupReset":0.3,
-    "kP":454},
-  "timestamp":1454930627,
-  "PID":{
-    "integral":0,
-    "proporcional":-830.82,
-    "lastInput":18.83,
-    "newErr":-1.83,
-    "derivativo":-0,
-    "timestamp":1455105778,
-    "result":0,"acumErr":0},
-  "nodeId":598,
-  "targetLevel":17,
-  "probeId":0,
-  "value":18.83,
-  "mode":1,
-  "oN":false,
-  "actuatorId":595}
+    "cyclesH":6,
+    "antiwindupReset":0.94,
+    "histeresis":0.64},
+"timestamp":1454930627,"PID":{"integral":104.7,"proporcional":158.9,"lastInput":20.15,"newErr":0.35,"derivativo":-0,"timestamp":1455122100,"result":263.6,"acumErr":3.84},"nodeId":598,"targetLevel":20.5,"probeId":0,"value":20.15,"mode":1,"oN":false,"actuatorId":595}
 {"probeId":0,
   "PID":{
     "proporcional":858.06,
