@@ -10,6 +10,10 @@
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
+-- obtener id del termostato
+local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
+local p2 = string.find(idLabel, ' --')
+local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
@@ -72,8 +76,8 @@ end
 fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value",
  binarySwitches[myKey].id..'-'..binarySwitches[myKey].name)
 -- recuperar dispositivo
-local termostatoVirtual = getDevice(_selfId)
+local termostatoVirtual = getDevice(thermostatId)
 --actualizar dispositivo
 termostatoVirtual.actuatorId = binarySwitches[myKey].id
-fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 --[[--------------------------------------------------------------------------]]

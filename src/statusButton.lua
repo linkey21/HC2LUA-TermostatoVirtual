@@ -12,6 +12,11 @@ local thingspeakKey = 'CQCLQRAU070GEOYY'
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
+-- obtener id del termostato
+local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
+local p2 = string.find(idLabel, ' --')
+local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
+local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
 --[[isVariable(varName)
@@ -42,7 +47,7 @@ function getDevice(nodeId)
 end
 
 -- recuperar dispositivo
-local termostatoVirtual = getDevice(fibaro:getSelfId())
+local termostatoVirtual = getDevice(thermostatId)
 
 -- actualizar cuando se anota salida del PID.
 --if termostatoVirtual.PID and termostatoVirtual.PID['timestamp'] ~= timestampPID then

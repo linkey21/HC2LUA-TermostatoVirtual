@@ -10,6 +10,7 @@
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 local thermostatId = 598  -- id del termostato virtual
+local configPanelId = 613  -- id del termostato virtual
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -264,7 +265,7 @@ while true do
     toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
     toolKit:log(INFO, '-------------------------------------------------------')
     -- actualizar las gráficas invocando al botón statusButton del termostato
-    fibaro:call(thermostatId, "pressButton", "16")
+    fibaro:call(configPanelId, "pressButton", "16")
   end
 --[[--------------------------------------------------------------------------]]
 
