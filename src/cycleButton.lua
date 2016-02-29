@@ -1,5 +1,16 @@
---
+--[[ TermostatoVirtual
+	Dispositivo virtual
+	cycleButton.lua
+	por Manuel Pascual
+------------------------------------------------------------------------------]]
+
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
+--[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
+
+--[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
+
+--[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
+--[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
 
 --[[isVariable(varName)
@@ -35,8 +46,10 @@ local actualCycle = tonumber(string.sub(kLabel, string.find(kLabel, 'c/h=')+ 4))
 kLabel = string.sub(kLabel, 1, string.find(kLabel, 'c/h=') + 3)
 -- obtener id del termostato
 local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
-local p2 = string.find(idLabel, ' --')
+fibaro:debug(idLabel)
+local p2 = string.find(idLabel, ' Panel')
 local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
+fibaro:debug(thermostatId)
 -- aumentar ciclo
 if actualCycle < 12 then
   actualCycle = actualCycle * 2

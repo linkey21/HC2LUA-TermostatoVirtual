@@ -12,7 +12,7 @@
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 -- obtener id del termostato
 local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
-local p2 = string.find(idLabel, ' --')
+local p2 = string.find(idLabel, ' Panel')
 local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
