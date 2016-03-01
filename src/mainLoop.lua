@@ -201,12 +201,12 @@ function setActuador(actuatorId, actuador)
     -- si hay que encender y esta apagado
     if actuador and actuatorState == '0' then
       -- encender
-      --fibaro:call(actuatorId, 'turnOn')
+      fibaro:call(617, 'turnOn')
       fibaro:call(actuatorId, "setMode", 1)
     end
     -- si hay que apagar y está encendido
     if not actuador and actuatorState == '1' then
-      --fibaro:call(actuatorId, 'turnOff')
+      fibaro:call(617, 'turnOff')
       fibaro:call(actuatorId, "setMode", 0)
     end
   end
@@ -248,7 +248,7 @@ end
 --[[temperarura de consigna]]
 -- comparar timestamp con os.time() y comprobar si hay panel
 if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.panelId ~= 0
- and termostatoVirtual.mode ~= 0 
+ and termostatoVirtual.mode ~= 0
  then
   -- si es menor y status es AUTOMATICO, tomar temperatura del panel
   targetLevel = getTargetLevel(panel)

@@ -1,5 +1,11 @@
+--[[ TermostatoVirtual
+	Dispositivo virtual
+	configMainLoop.lua
+	por Manuel Pascual
+------------------------------------------------------------------------------]]
+
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-local controlPanelId = 598
+local thermostatId = 598
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 -- ID de este dispositivo virtual
@@ -34,11 +40,14 @@ end
 
 -- actualizar etiqueta identificador
 fibaro:call(_selfId, "setProperty", "ui.idLabel.value", 'Termostato: '
- ..controlPanelId..' -- id: '.._selfId)
+ ..thermostatId..' Panel Config.:'.._selfId)
 -- recuperar dispositivo
-local termostatoVirtual = getDevice(controlPanelId)
+local termostatoVirtual = getDevice(thermostatId)
 local K = termostatoVirtual.K
 if not K.cyclesH then K.cyclesH = 3 end
 -- actualizar etiqueta K
+--fibaro:debug('Kp='..K.kP..' Ki='..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)
 fibaro:call(_selfId, "setProperty", "ui.KLabel.value", 'Kp='..K.kP..' Ki='
  ..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)
+-- actualizar icono
+fibaro:call(_selfId, 'setProperty', "currentIcon", 1068)

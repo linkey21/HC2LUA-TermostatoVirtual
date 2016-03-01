@@ -4,14 +4,13 @@
 	por Manuel Pascual
 ------------------------------------------------------------------------------]]
 
-local tuneTime = 60    -- segundos que dura la pruena de calentamiento
-local cycleTime = 600     -- tiempo por ciclo de calefacción en segundos
+local tuneTime = 3600    -- segundos que dura la pruena de calentamiento
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 -- obtener id del termostato
 local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
-local p2 = string.find(idLabel, ' --')
-local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
+local p2 = string.find(idLabel, ' Panel')
+local thermostatId = tonumber(string.sub(idLabel, 13, p2))
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 mode[3]='CALIBRADO_F1'; mode[4]='CALIBRADO_F2'; mode[5]='CALIBRADO_FIN'
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
@@ -63,8 +62,8 @@ local termostatoVirtual = getDevice(thermostatId)
 if termostatoVirtual.mode < 3 then
   fibaro:debug('Comienza calibrado Fase 1...')
   -- poner el PID en modo autoTune Fase 1 e indicar tiempo de calibrado
-  local K = {tuneTime = tuneTime}; termostatoVirtual.K = K
-  termostatoVirtual.mode = 3
+  local K = termostatoVirtual.K
+  termostatoVirtual['K'].tuneTime = tuneTime; termostatoVirtual.mode = 3
   -- actualizar dispositivo
   fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
   -- inicializar temperatura inicial y temperatura tras tiempo de calibrado
@@ -97,15 +96,15 @@ if termostatoVirtual.mode < 3 then
   fibaro:debug('thh = '..thh)
 
   K.histeresis = thh - th
-  K.antiwindupReset = K.histeresis + (cycleTime / 2000)
+  K.antiwindupReset = K.histeresis + ((3600/K.cyclesH) / 2000)
   fibaro:debug('histeresis='..K.histeresis..' antiwindupReset='
   ..K.antiwindupReset )
   local ih = thh - t
   -- evitar error division por 0
   if ih == 0 then ih = 1 end
   fibaro:debug('th = '..th)
-  K.kP = math.floor(cycleTime / ih)
-  K.kI = math.floor(cycleTime / (ih * 15))
+  K.kP = math.floor((3600/K.cyclesH) / ih)
+  K.kI = math.floor((3600/K.cyclesH) / (ih * 15))
   K.kD = K.kI * 2
   fibaro:debug('kP='..K.kP..' kI='..K.kI..' kD='..K.kD)
 
