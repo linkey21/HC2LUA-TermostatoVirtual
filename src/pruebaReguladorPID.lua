@@ -129,14 +129,28 @@ while true do
   local termostatoVirtual = getDevice(thermostatId)
   toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
-  --[[ Comprobar si el termostato está en modo calibración]]
+  --[[ Comprobar si el termostato está en modo calibración
+  se establece la variable tSeg para controlar tiempo de seguridad máximo que la
+  caldera puede estar encendida continnuamente --]]
+  local tSeg = os.time() +
+   ((3600 / termostatoVirtual['K'].cyclesH) - minTimeAction)
   if termostatoVirtual.mode > 2 then
     -- se detiene el PID hasta que finaliza el calibrado
     cicloStamp = os.time() + 10
     -- si estamos en fase 1 del calibrado, el punto de encendido de la caldera
     -- finaliza después del tiempo de calibrado
     if termostatoVirtual.mode == 3 then
-      changePoint = os.time() + 10
+      --[[ se aplica el factor de seguridad para que la caldera no permanezca
+      encendida constatemente --]]
+      if os.time() <= tSeg then
+        changePoint = os.time() + 10
+      elseif os.time() <= (tSeg + minTimeAction) then
+        changePoint = os.time() - 10
+      else
+        changePoint = os.time() + 10
+        tSeg = os.time() +
+         ((3600 / termostatoVirtual['K'].cyclesH) - minTimeAction)
+      end
     elseif termostatoVirtual.mode == 4 then -- Fase 2 del calibrado
       changePoint = os.time() - 10
     else -- finaliza el calibrado
@@ -151,7 +165,7 @@ while true do
 
   --[[comprobar cambio en la consigna setPoint
   si cambia la temperatura de consigna, interrupir el ciclo e iniciar un nuevo
-  ciclo dejando el estado del PID igual]]
+  ciclo dejando el estado del PID igual --]]
   if setPoint ~= termostatoVirtual.targetLevel then
     toolKit:log(INFO, 'Cambio del valor de la temperatura de consigna')
     cicloStamp = os.time()
