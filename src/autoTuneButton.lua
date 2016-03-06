@@ -43,17 +43,19 @@ function getDevice(nodeId)
 end
 
 --[[CALIBRADO
-comenzamos el calibrado en (t) ponemos la salida = cliclo máximo durante una
-hora (th) para hayar el incremento de termperatura producido desde (t) a (th).
-[ih = th - t]
-una vez se alcanza la hora, poner salida = 0 comprobar la temperatura (th) hasta
-que comience a bajar (thh) para averiguar la inercia térmica [iT = thh - th]
+comenzamos el calibrado tomando la temperatura (t) ponemos la salida =
+ (cycleTime - minTimeActiondurante) durante el tiempo indicado (tuneTime)
+ cuando pasa el tiempo tomamos la temperatura para hayar el incremento de
+ producido desde (t) a (th). [ih = th - t]
+una vez se alcanzado el tiempo, poner salida = 0 comprobar la temperatura (th)
+hasta que comience a bajar (thh) o hasta que pase tuneTime/2 para averiguar la
+inercia térmica [iT = thh - th]
 
 kP = cycleTime / (ih)
-kI = cycleTime / (ih * (15 / ih))
-KD = cycleTime / (ih * (30 / ih))
-histeresis = iT
-antiwindupReset = histeresis + (cycleTime / 3000)
+kI = cycleTime / (ih * 15)
+KD = K.kI * 2
+histeresis = thh - th
+antiwindupReset = histeresis + (cycleTime / 2000)
 ]]
 
 -- recuperar dispositivo
