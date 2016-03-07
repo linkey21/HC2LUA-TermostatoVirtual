@@ -5,7 +5,8 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-local thermostatId = 598
+if not thermostatId then thermostatId = 598 end
+if not iconId then iconId = 1068 end
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 -- ID de este dispositivo virtual
@@ -41,13 +42,16 @@ end
 -- actualizar etiqueta identificador
 fibaro:call(_selfId, "setProperty", "ui.idLabel.value", 'Termostato: '
  ..thermostatId..' Panel Config.:'.._selfId)
+ -- actualizar icono
+ fibaro:call(_selfId, 'setProperty', "currentIcon", iconId)
+
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(thermostatId)
 local K = termostatoVirtual.K
 if not K.cyclesH then K.cyclesH = 3 end
--- actualizar etiqueta K
+-- actualizar etiquetas K
 --fibaro:debug('Kp='..K.kP..' Ki='..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)
 fibaro:call(_selfId, "setProperty", "ui.KLabel.value", 'Kp='..K.kP..' Ki='
  ..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)
--- actualizar icono
-fibaro:call(_selfId, 'setProperty', "currentIcon", 1068)
+fibaro:call(_selfId, "setProperty", "ui.hisWindLabel.value",
+ 'histeresis='..K.histeresis..' antiwindupReset='..K.antiwindupReset)

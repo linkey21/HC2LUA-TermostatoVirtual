@@ -114,7 +114,7 @@ if termostatoVirtual.mode < 3 then
   termostatoVirtual.K = K
 end
 
-fibaro:debug('Finaliza calibrado')
+fibaro:debug('Finalizo calibrado')
 -- indicar anulada o finalizado del calibrado
 termostatoVirtual.mode = 5
 

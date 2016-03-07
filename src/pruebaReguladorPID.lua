@@ -279,7 +279,7 @@ while true do
     toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
     toolKit:log(INFO, '-------------------------------------------------------')
     -- actualizar las gráficas invocando al botón statusButton del termostato
-    fibaro:call(configPanelId, "pressButton", "16")
+    fibaro:call(configPanelId, "pressButton", "21")
   end
 --[[--------------------------------------------------------------------------]]
 
