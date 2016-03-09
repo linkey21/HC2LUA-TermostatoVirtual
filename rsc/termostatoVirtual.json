@@ -1,4 +1,10 @@
 {"panelId":534,
   "K":{
-    "histeresis":0.43,
-    "antiwindupReset":0.73,"kD":36,"tuneTime":7000,"minTimeAction":60,"kP":276,"kI":18,"cyclesH":6},"timestamp":1457277652,"PID":{"acumErr":5.85,"proporcional":143.52,"lastInput":20.48,"newErr":0.52,"derivativo":-0,"timestamp":1457289054,"result":239.46,"integral":95.94},"nodeId":598,"targetLevel":21,"probeId":0,"value":20.48,"mode":1,"oN":false,"actuatorId":595}
+    "kP":276,
+    "antiwindupReset":1,
+    "kD":36,"tuneTime":60,
+    "minTimeAction":60,
+    "cyclesH":6,
+    "kI":36,
+    "histeresis":0.43},
+  "timestamp":1457547265,"PID":{"integral":12.24,"proporcional":24.84,"lastInput":20.91,"newErr":0.09,"derivativo":-0,"timestamp":1457549420,"result":0,"acumErr":0.43},"nodeId":598,"targetLevel":21,"probeId":0,"value":20.91,"mode":1,"oN":false,"actuatorId":595}

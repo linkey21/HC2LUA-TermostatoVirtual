@@ -74,9 +74,11 @@ function resetDevice(nodeId)
     end
   end
   -- crear tabla vacía para dispositivo
+  local K = {kP = 0, antiwindupReset = 0, kD = 0, tuneTime = 0,
+   minTimeAction = 0, cyclesH = 0, kI = 0, histeresis = 0}
   local PID = {result = 0, newErr = 0, acumErr = 0, proporcional = 0,
    integral = 0, derivativo = 0, lastInput = 0}
-  local termostatoVirtual = {PID = PID, nodeId = nodeId, panelId = 0,
+  local termostatoVirtual = {PID = PID, K = K, nodeId = nodeId, panelId = 0,
    probeId = 0, targetLevel = 0, value = 0, mode = 1, timestamp = os.time(),
    oN=false}
   -- guardar la tabla en la variable global
@@ -197,7 +199,7 @@ function setActuador(actuatorId, actuador)
   if actuatorId and actuatorId ~= 0 then
     -- comprobar estado actual
     --local actuatorState = fibaro:getValue(actuatorId, 'value')
-    local actuatorState = fibaro:getValue(actuatorId, 'mode') -- 1=OFF 0=ON
+    local actuatorState = fibaro:getValue(actuatorId, 'mode')
     -- si hay que encender y esta apagado
     if actuador and actuatorState == '0' then
       -- encender
