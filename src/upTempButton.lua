@@ -41,29 +41,32 @@ end
 
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(_selfId)
--- recuperar temperaturas
-local value = termostatoVirtual.value
-local targetLevel = termostatoVirtual.targetLevel
-local onOff = ' _'
--- disminuir intervalo
-if targetLevel <= (maxTemp - intervalo) then
-  targetLevel = targetLevel + intervalo
-else
-  targetLevel = 0
+
+-- comprobar que no está en modo MANUAL
+if termostatoVirtual.mode ~= 0 then
+  -- recuperar temperaturas
+  local value = termostatoVirtual.value
+  local targetLevel = termostatoVirtual.targetLevel
+  local onOff = ' _'
+  -- disminuir intervalo
+  if targetLevel <= (maxTemp - intervalo) then
+    targetLevel = targetLevel + intervalo
+  else
+    targetLevel = 0
+  end
+
+  --actualizar dispositivo
+  termostatoVirtual.targetLevel = targetLevel
+  -- proteger con un tiempo por defecto
+  termostatoVirtual.timestamp = os.time() + shadowTime * 60
+  -- guardar en variable global
+  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+
+  -- actualizar la etiqueta
+  targetLevel = string.format('%.2f', targetLevel)
+  value = string.format('%.2f', value)
+  local onOff = ' _'
+  fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+   value..'ºC / '..targetLevel..'ºC'..onOff)
 end
-
---actualizar dispositivo
-termostatoVirtual.targetLevel = targetLevel
--- proteger con un tiempo por defecto
-termostatoVirtual.timestamp = os.time() + shadowTime * 60
--- guardar en variable global
-fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-
--- actualizar la etiqueta
-targetLevel = string.format('%.2f', targetLevel)
-value = string.format('%.2f', value)
-local onOff = ' _'
-fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
- value..'ºC / '..targetLevel..'ºC'..onOff)
-
 --[[--------------------------------------------------------------------------]]

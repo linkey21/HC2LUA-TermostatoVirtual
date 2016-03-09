@@ -42,10 +42,12 @@ end
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(_selfId)
 
---actualizar dispositivo
-termostatoVirtual.timestamp = os.time() + shadowTime * 60
-termostatoVirtual.targetLevel = ecoTemperature
--- guardar en variable global
-fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
--- actualizar etiqueda de modo de funcionamiento "mode""
---fibaro:call(_selfId, "setProperty", "ui.modeLabel.value", mode[termostatoVirtual.mode])
+-- comprobar que no está en modo MANUAL
+if termostatoVirtual.mode ~= 0 then
+  --actualizar dispositivo
+  termostatoVirtual.timestamp = os.time() + shadowTime * 60
+  termostatoVirtual.targetLevel = ecoTemperature
+  -- guardar en variable global
+  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+end
+--[[--------------------------------------------------------------------------]]
