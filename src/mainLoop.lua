@@ -8,6 +8,15 @@
 -- id de los iconos ON OFF
 local iconON = 1067
 local iconOFF = 1066
+--[[ nombre de la funcion que hay que usar para encender/apagar el actuador y
+     delnombre de la propieda que muestra el estado
+local actuatorOn = 'turnOn'
+local actuatorOff = 'turnOff'
+local actuatorStatus = 'value'
+--]]
+local actuatorOn = 'setMode'
+local actuatorOff = 'setMode'
+local actuatorStatus = 'mode'
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
 local virtualProbe = function (self, ...)
@@ -196,20 +205,26 @@ end
   --]]
 function setActuador(actuatorId, actuador)
   -- si el actuador no está en modo mantenimiento
+  toolKit:log(DEBUG, actuatorId)
   if actuatorId and actuatorId ~= 0 then
+    toolKit:log(DEBUG, 'Hay actuador')
     -- comprobar estado actual
-    --local actuatorState = fibaro:getValue(actuatorId, 'value')
-    local actuatorState = fibaro:getValue(actuatorId, 'mode')
+    local actuatorState
+    local actuatorState = fibaro:getValue(actuatorId, actuatorStatus)
     -- si hay que encender y esta apagado
+    toolKit:log(DEBUG, actuatorState)
     if actuador and actuatorState == '0' then
-      -- encender
-      fibaro:call(617, 'turnOn')
-      fibaro:call(actuatorId, "setMode", 1)
+      -- informar
+      toolKit:log(INFO, 'Actuador-ON')
+      --fibaro:call(617, 'turnOn')
+      fibaro:call(actuatorId, actuatorOn, 1)
     end
     -- si hay que apagar y está encendido
     if not actuador and actuatorState == '1' then
-      fibaro:call(617, 'turnOff')
-      fibaro:call(actuatorId, "setMode", 0)
+      -- informar
+      toolKit:log(INFO, 'Actuador-OFF')
+      --fibaro:call(617, 'turnOff')
+      fibaro:call(actuatorId, actuatorOff, 0)
     end
   end
 end
@@ -333,16 +348,14 @@ end
 --if termostatoVirtual.oN ~= on then
   if termostatoVirtual.oN then
     -- informar
-    toolKit:log(INFO, 'ON')
+    toolKit:log(DEBUG, 'ON')
     -- actuar sobre el actuador si es preciso
     setActuador(termostatoVirtual.actuatorId, true)
-    on = true
   else
     -- informar
-    toolKit:log(INFO, 'OFF')
+    toolKit:log(DEBUG, 'OFF')
     -- actuar sobre el actuador si es preciso
     setActuador(termostatoVirtual.actuatorId, false)
-    on = false
   end
 --end
 --fibaro:sleep(1000)

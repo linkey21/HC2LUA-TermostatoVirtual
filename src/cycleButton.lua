@@ -52,7 +52,7 @@ local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
 fibaro:debug(thermostatId)
 -- aumentar ciclo
 if actualCycle < 12 then
-  actualCycle = actualCycle * 2
+  actualCycle = actualCycle + 3
 else
   actualCycle = 3
 end
