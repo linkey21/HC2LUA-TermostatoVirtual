@@ -9,8 +9,8 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-local thermostatId = 598  -- id del termostato virtual
-local configPanelId = 613  -- id del termostato virtual
+local thermostatId = 631  -- id del termostato virtual
+local configPanelId = 630  -- id del termostato virtual
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
@@ -187,6 +187,10 @@ while true do
 
     -- calcular proporcional
     PID.proporcional = PID.newErr * K.kP
+    if PID.proporcional < 0 then
+      PID.proporcional = 0
+      toolKit:log(INFO, 'proporcional <0')
+    end
 
     -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
     -- lugar de error
@@ -236,11 +240,16 @@ while true do
 
     --[[limitador por histeresis
     si error es menor o igual que la histeresis limitar la salida a 0, siempre
-    que la tempeatura venga subiendo, no limitar hoteresis de bajada]]
-    if PID.result > 0 and math.abs(PID.newErr) <= K.histeresis and
-     PID.lastInput < termostatoVirtual.value then -- solo de subida
-      PID.result = 0
-      toolKit:log(INFO, 'histéresis error ∓'..K.histeresis)
+    que la tempeatura venga subiendo, no limitar hiteresis de bajada. Resetear
+    el error acumulado. Si no hacemos esto tenemos acciones de control de la
+    parte integral muy altas debidas a un error acumulado grande cuando estamos
+    en histéresis. Eso provoca acciones integrales diferidas muy grandes]]
+    if PID.result > 0 and math.abs(PID.newErr) <= K.histeresis then
+      PID.acumErr = 0
+      if PID.lastInput < termostatoVirtual.value then -- solo de subida
+        PID.result = 0
+        toolKit:log(INFO, 'histéresis error ∓'..K.histeresis)
+      end
     end
 
     --[[límitador de acción mínima
@@ -281,7 +290,6 @@ while true do
     -- actualizar las gráficas invocando al botón statusButton del termostato
     fibaro:call(configPanelId, "pressButton", "21")
   end
---[[--------------------------------------------------------------------------]]
 
   --[[encendido / apagado]]
   -- si no se ha llegado al punto de cambio encender
@@ -298,5 +306,7 @@ while true do
       fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
     end
   end
+
+  fibaro:sleep(1000)
 
 end

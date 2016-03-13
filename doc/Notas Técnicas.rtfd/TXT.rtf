@@ -267,7 +267,7 @@ Que pasa si SalidaIntegral < ciclo pero SalidaTotal > ciclo?\
 \b Integraci\'f3n normal\
 \pard\pardeftab720\sl320\partightenfactor0
 
-\b0 \cf4 \outl0\strokewidth0 \strokec4 \uc0\u8234 ErrAcum+=Error\cf2 \outl0\strokewidth0 \uc0\u8236 \
+\b0 \cf4 \uc0\u8234 ErrAcum+=Error\cf2 \uc0\u8236 \
 \pard\pardeftab720\partightenfactor0
 \cf2 \
 pero que pasa cuando el error vuelve a alejarse de la consigna?, que hago con el errAcum?\
@@ -280,4 +280,23 @@ Si (Salida>0) y ValorAbsoluto(Error)<Histeresis Entoces Salida=0.\
 L\'edmite de acci\'f3n
 \b \
 \
-}
+\pard\pardeftab720\partightenfactor0
+
+\b0 \cf2 He limitado la salida proporcional para que nunca sea menor a cero. No tiene sentido que sea negativa.\
+\
+\'a0-- calcular proporcional y si es negativo dejarlo a cero\
+\'a0 \'a0 PID.proporcional = PID.newErr * K.kP\
+\'a0 \'a0 if PID.proporcional < 0 then\
+\'a0 \'a0 \'a0 PID.proporcional = 0\
+\'a0 \'a0 \'a0 toolKit:log(INFO, 'proporcional < 0')\
+\'a0 \'a0 end\
+\
+Quiero hacer otro cambio en cuanto pueda para mejorar la respuesta. El l\'edmite de m\'ednimo tiempo encendido de 60 seg aplica la siguiente l\'f3gica:\
+\
+Si tiempo de ON es < 60 entonces tiempo encendido=0.\
+\
+Quiero que siga siendo as\'ed solo cuando vas de subida. Si vas de bajada lo dejar\'e9:\
+\
+Si tiempo de ON es < 60 entonces tiempo encendido=60.\
+\
+\'bfPor qu\'e9? Porque si no lo hacemos as\'ed la temperatura baja mucho hasta que vuelve a encenderse por culpa de ese m\'ednimo. Sin embargo subiendo ayuda mucho a llegar a la consigna de forma suave. Esta tarde lo modifico. Ahora quiero ver como aproxima a la consigna sin joder el ciclo.}
