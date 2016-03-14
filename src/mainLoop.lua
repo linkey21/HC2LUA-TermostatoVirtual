@@ -362,7 +362,7 @@ while true do
   -- esperar para evitar colapsar la CPU
   fibaro:sleep(1000)
   -- mensaje para el watchdof
-  toolKit:log(DEBUG, 'Estado: OK')
+  toolKit:log(INFO, 'Estado: OK')
 
 end
 
