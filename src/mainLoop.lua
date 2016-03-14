@@ -230,122 +230,123 @@ function setActuador(actuatorId, actuador)
 end
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
--- recuperar dispositivo
-local termostatoVirtual = getDevice(_selfId)
-toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
+while true do
+  -- recuperar dispositivo
+  local termostatoVirtual = getDevice(_selfId)
+  toolKit:log(DEBUG, 'termostatoVirtual: '..json.encode(termostatoVirtual))
 
--- actualizar etiqueta identificador
-fibaro:call(_selfId, "setProperty", "ui.labelId.value",'id: '.._selfId)
+  -- actualizar etiqueta identificador
+  fibaro:call(_selfId, "setProperty", "ui.labelId.value",'id: '.._selfId)
 
---[[Panel]]
--- obtener el panel
-local panel = getPanel(fibaro:getRoomID(_selfId))
--- si hay panel de calefacción para la habitación donde está el termostato
-if panel then
-  toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
-  -- actualizar identificador del panel
-  termostatoVirtual.panelId = panel.id
-else -- si no hay panel
-  -- cambiar el modo a MANUAL y el identificador de panel a 0
-  termostatoVirtual.panelId = 0
-end
--- actualizar dispositivo
-fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-
---[[temperarura actual]]
--- si hay sonda declarada obtener la temperatura
-local value, targetLevel = 0, 0
-if termostatoVirtual.probeId and termostatoVirtual.probeId ~= 0 then
-  value = tonumber(fibaro:getValue(termostatoVirtual.probeId, 'value'))
-elseif termostatoVirtual.probeId == 0 then
-  -- si la sonda es virtual
-  value = virtualProbe()
-end
-
---[[temperarura de consigna]]
--- comparar timestamp con os.time() y comprobar si hay panel
-if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.panelId ~= 0
- and termostatoVirtual.mode ~= 0
- then
-  -- si es menor y status es AUTOMATICO, tomar temperatura del panel
-  targetLevel = getTargetLevel(panel)
-  toolKit:log(DEBUG, 'Temperatura consigna: '..targetLevel..'ºC')
-end
-
--- actualizar dispositivo (temperarura y consigna)
-termostatoVirtual.value = value
--- si la "targetLevel" es distinto de 0 actualizar temperarura de consigna
-if targetLevel > 0 then
-  termostatoVirtual.targetLevel = targetLevel
-end
-fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-
--- actualizar icono y etiquetas
-local onOff = ' _'
-local icono = iconOFF
-local targetLevel = tonumber(getDevice(_selfId).targetLevel)
-local value = tonumber(getDevice(_selfId).value)
-if termostatoVirtual.oN then
-  onOff = ' 🔥'
-  icono = iconON
-end
-targetLevel = string.format('%.2f', targetLevel)
-value = string.format('%.2f', value)
--- actualizar etiqueta
-fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
- value..'ºC / '..targetLevel..'ºC'..onOff)
--- actualizar icono
-fibaro:call(_selfId, 'setProperty', "currentIcon", icono)
-
---[[tiempo de protección]]
--- si el modo no es OFF ni calibrando OFF=0 CALIBRANDO>=3
-if termostatoVirtual.mode > 0 and termostatoVirtual.mode < 3 then
-  local shadowTime = termostatoVirtual.timestamp - os.time()
-  -- si ha finalizado el tiempo de proteccion y hay panel
-  if shadowTime <= 0 and termostatoVirtual.panelId ~= 0 then
-    shadowTime = 0
-    -- actualizar el modo de funcionamiento a AUTOMATICO
-    termostatoVirtual.mode = 1
-  else
-    shadowTime = shadowTime / 60
-    -- actualizar el modo de funcionamiento a MANUAL
-    termostatoVirtual.mode = 2
+  --[[Panel]]
+  -- obtener el panel
+  local panel = getPanel(fibaro:getRoomID(_selfId))
+  -- si hay panel de calefacción para la habitación donde está el termostato
+  if panel then
+    toolKit:log(DEBUG, 'Nombre panel: '..panel.name)
+    -- actualizar identificador del panel
+    termostatoVirtual.panelId = panel.id
+  else -- si no hay panel
+    -- cambiar el modo a MANUAL y el identificador de panel a 0
+    termostatoVirtual.panelId = 0
   end
   -- actualizar dispositivo
   fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
-  -- actualizar etiqueda de modo de funcionamiento "mode""
-  toolKit:log(DEBUG, 'Modo: '..mode[termostatoVirtual.mode])
-  fibaro:call(_selfId, "setProperty", "ui.modeLabel.value",
-   mode[termostatoVirtual.mode])
-   -- actualizar etiqueta de tiempo
-  local minText = {}; local timeLabel = '06h 00m'
-  minText[0]   = '00h 00m'; minText[15]  = '00h 15m'; minText[30]  = '00h 30m'
-  minText[45]  = '00h 45m'; minText[60]  = '01h 00m'; minText[75]  = '01h 15m'
-  minText[90]  = '01h 30m'; minText[105] = '01h 45m'; minText[120] = '02h 00m'
-  minText[135] = '02h 15m'; minText[150] = '02h 30m'; minText[165] = '02h 45m'
-  minText[180] = '03h 00m'; minText[195] = '03h 15m'; minText[210] = '03h 30m'
-  minText[225] = '03h 45m'; minText[240] = '04h 00m'; minText[255] = '04h 15m'
-  minText[270] = '04h 30m'; minText[285] = '04h 45m'; minText[300] = '05h 00m'
-  minText[315] = '05h 15m'; minText[330] = '05h 30m'; minText[345] = '05h 45m'
-  minText[360] = '06h 00m'
-  for value = 360, 0, -15 do
-    if shadowTime <= value then
-      timeLabel = minText[value]
-    else
-      break
-    end
-  end
-  -- actualizar etiqueta de tiempo
-  fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
-else
-  -- actualizar etiqueda de modo de funcionamiento "mode"
-  fibaro:call(_selfId, "setProperty", "ui.modeLabel.value",
-   mode[termostatoVirtual.mode])
-end
 
---[[encendido / apagado]]
--- actualizar solo si el dispositivo cambia de estado
---if termostatoVirtual.oN ~= on then
+  --[[temperarura actual]]
+  -- si hay sonda declarada obtener la temperatura
+  local value, targetLevel = 0, 0
+  if termostatoVirtual.probeId and termostatoVirtual.probeId ~= 0 then
+    value = tonumber(fibaro:getValue(termostatoVirtual.probeId, 'value'))
+  elseif termostatoVirtual.probeId == 0 then
+    -- si la sonda es virtual
+    value = virtualProbe()
+  end
+
+  --[[temperarura de consigna]]
+  -- comparar timestamp con os.time() y comprobar si hay panel
+  if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.panelId ~= 0
+   and termostatoVirtual.mode ~= 0
+   then
+    -- si es menor y status es AUTOMATICO, tomar temperatura del panel
+    targetLevel = getTargetLevel(panel)
+    toolKit:log(DEBUG, 'Temperatura consigna: '..targetLevel..'ºC')
+  end
+
+  -- actualizar dispositivo (temperarura y consigna)
+  termostatoVirtual.value = value
+  -- si la "targetLevel" es distinto de 0 actualizar temperarura de consigna
+  if targetLevel > 0 then
+    termostatoVirtual.targetLevel = targetLevel
+  end
+  fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+
+  -- actualizar icono y etiquetas
+  local onOff = ' _'
+  local icono = iconOFF
+  local targetLevel = tonumber(getDevice(_selfId).targetLevel)
+  local value = tonumber(getDevice(_selfId).value)
+  if termostatoVirtual.oN then
+    onOff = ' 🔥'
+    icono = iconON
+  end
+  targetLevel = string.format('%.2f', targetLevel)
+  value = string.format('%.2f', value)
+  -- actualizar etiqueta
+  fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
+   value..'ºC / '..targetLevel..'ºC'..onOff)
+  -- actualizar icono
+  fibaro:call(_selfId, 'setProperty', "currentIcon", icono)
+
+  --[[tiempo de protección]]
+  -- si el modo no es OFF ni calibrando OFF=0 CALIBRANDO>=3
+  if termostatoVirtual.mode > 0 and termostatoVirtual.mode < 3 then
+    local shadowTime = termostatoVirtual.timestamp - os.time()
+    -- si ha finalizado el tiempo de proteccion y hay panel
+    if shadowTime <= 0 and termostatoVirtual.panelId ~= 0 then
+      shadowTime = 0
+      -- actualizar el modo de funcionamiento a AUTOMATICO
+      termostatoVirtual.mode = 1
+    else
+      shadowTime = shadowTime / 60
+      -- actualizar el modo de funcionamiento a MANUAL
+      termostatoVirtual.mode = 2
+    end
+    -- actualizar dispositivo
+    fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+    -- actualizar etiqueda de modo de funcionamiento "mode""
+    toolKit:log(DEBUG, 'Modo: '..mode[termostatoVirtual.mode])
+    fibaro:call(_selfId, "setProperty", "ui.modeLabel.value",
+     mode[termostatoVirtual.mode])
+     -- actualizar etiqueta de tiempo
+    local minText = {}; local timeLabel = '06h 00m'
+    minText[0]   = '00h 00m'; minText[15]  = '00h 15m'; minText[30]  = '00h 30m'
+    minText[45]  = '00h 45m'; minText[60]  = '01h 00m'; minText[75]  = '01h 15m'
+    minText[90]  = '01h 30m'; minText[105] = '01h 45m'; minText[120] = '02h 00m'
+    minText[135] = '02h 15m'; minText[150] = '02h 30m'; minText[165] = '02h 45m'
+    minText[180] = '03h 00m'; minText[195] = '03h 15m'; minText[210] = '03h 30m'
+    minText[225] = '03h 45m'; minText[240] = '04h 00m'; minText[255] = '04h 15m'
+    minText[270] = '04h 30m'; minText[285] = '04h 45m'; minText[300] = '05h 00m'
+    minText[315] = '05h 15m'; minText[330] = '05h 30m'; minText[345] = '05h 45m'
+    minText[360] = '06h 00m'
+    for value = 360, 0, -15 do
+      if shadowTime <= value then
+        timeLabel = minText[value]
+      else
+        break
+      end
+    end
+    -- actualizar etiqueta de tiempo
+    fibaro:call(_selfId, "setProperty", "ui.timeLabel.value", timeLabel)
+  else
+    -- actualizar etiqueda de modo de funcionamiento "mode"
+    fibaro:call(_selfId, "setProperty", "ui.modeLabel.value",
+     mode[termostatoVirtual.mode])
+  end
+
+  --[[encendido / apagado]]
+  -- actualizar solo si el dispositivo cambia de estado
+  --if termostatoVirtual.oN ~= on then
   if termostatoVirtual.oN then
     -- informar
     toolKit:log(DEBUG, 'ON')
@@ -357,6 +358,12 @@ end
     -- actuar sobre el actuador si es preciso
     setActuador(termostatoVirtual.actuatorId, false)
   end
---end
---fibaro:sleep(1000)
+
+  -- esperar para evitar colapsar la CPU
+  fibaro:sleep(1000)
+  -- mensaje para el watchdof
+  toolKit:log(DEBUG, 'Estado: OK')
+
+end
+
 --🌛🔧🌡🔥🔘⏱📈
