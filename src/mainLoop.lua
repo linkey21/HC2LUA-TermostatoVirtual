@@ -362,7 +362,7 @@ while true do
 
   -- esperar para evitar colapsar la CPU
   fibaro:sleep(1000)
-  -- para control por whatchdog
+  -- para control por watchdog
   toolKit:log(INFO, release['name']..' OK')
 
 end
