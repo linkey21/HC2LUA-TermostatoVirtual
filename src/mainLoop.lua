@@ -28,6 +28,7 @@ end
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
+local release = {name='termostatoVirtual', ver=1, mayor=0, minor=2}
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 mode[3]='CALIBRADO_F1'; mode[4]='CALIBRADO_F2'; mode[5]='CALIBRADO_FIN'
@@ -361,8 +362,8 @@ while true do
 
   -- esperar para evitar colapsar la CPU
   fibaro:sleep(1000)
-  -- mensaje para el watchdof
-  toolKit:log(INFO, 'Estado: OK')
+  -- para control por whatchdog
+  toolKit:log(INFO, release['name']..' OK')
 
 end
 
