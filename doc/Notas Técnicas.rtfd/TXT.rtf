@@ -1,6 +1,8 @@
 {\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf340
-{\fonttbl\f0\fswiss\fcharset0 ArialMT;}
-{\colortbl;\red255\green255\blue255;\red26\green26\blue26;}
+{\fonttbl\f0\fswiss\fcharset0 ArialMT;\f1\fnil\fcharset0 Verdana;\f2\froman\fcharset0 Times-Roman;
+\f3\fnil\fcharset0 AppleColorEmoji;\f4\fnil\fcharset0 Monaco;}
+{\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red15\green112\blue1;\red29\green38\blue42;
+}
 \paperw11900\paperh16840\margl1440\margr1440\vieww23600\viewh20980\viewkind0
 \deftab720
 \pard\pardeftab720\partightenfactor0
@@ -83,4 +85,218 @@ En una primera fase, hacer que el termostato virtual funcione en modo autom\'e1t
 \b0 De esta forma Antonio puede trabajar el la escena PID, conservando en el c\'f3digo una funci\'f3n que obtenga los valores del termostato virtual 
 \b targetLevel 
 \b0 y 
-\b value}
+\b value\
+\
+\
+Tiempo de ciclo e  intervalo de c\'e1lculo PID
+\b0 \
+Se han realizado algunas modificaciones que permiten independizar el tiempo de ciclo del intervalo de c\'e1lculo PID, de forma que el PID se pueda calcular regularmente sin depender de los ciclos de calefacci\'f3n.
+\b \
+\
+
+\b0 El sistema trabaja con ciclos de caldera con una duraci\'f3n determinada por 
+\b tiempoCiclo 
+\b0 (se puede plantear un ajuste din\'e1mico de los ciclos)
+\b .\
+
+\b0 Al comenzar el proceso se establece el 
+\b inicioCiclo
+\b0  que es el instante en el que comienza el ciclo.\
+Cada 
+\b intervalo
+\b0  se invoca el calculo PID de forma regular, del que se obtiene una salida (
+\b result
+\b0 ) que representa el pulso o duraci\'f3n de encendido de la caldera dentro del ciclo, de este valor se obtiene el momento en el que deber\'eda cambiar el estado de la caldera 
+\b changePoint
+\b0  OFF/ON.\
+El 
+\b intervalo
+\b0  puede ser (normalmente lo ser\'e1) mas peque\'f1o que el tiempo de cliclo (
+\b tiempoCiclo) 
+\b0 lo que hace que el pulso (
+\b changePoint
+\b0 ) se rectifique varias veces durante el ciclo, esto no vuelve a resetear todo el ciclo, \'fanicamente rectifica cambiando el punto de cambio 
+\b (changePoint = inicioCiclo + result) 
+\b0 y mantiene guardado el inicio de ciclo en 
+\b inicioCiclo.\
+
+\b0 Cada 
+\b intervalo
+\b0  se comprueba si el ciclo de calefacci\'f3n a terminado y se inicia uno nuevo reseteando 
+\b inicioCiclo
+\b0 .\
+\
+Hola soy el plasta del PID otra vez.\
+Te comento una serie de cambios y dudas para ver si que te parece antes de seguir.\
+\
+Ya he vuelto a sacar el PID del termostato a un escena, tengo un problema para enviar los datos a thihspeak desde la escena as\'ed que finalmente los escribo en la variable global y es el VD quien los env\'eda con el consiguiente problema de posible parada del bucle principal, para esto he quitado el bucle cerrado de dentro de mainLoop y dejo que use el ciclo "natural" del VD, de momento parece que funciona.\
+\
+He modificado el antiwindup de tal forma que, si el resultado sale del rango del tiempo de ciclo t\uc0\u8747 0, recalcula el error del integrador de tal forma que aplicado al calculo el resultado hubiera sido el limite del rango (t), y es este error el que acumula, adicionalmente se ajusta la salida al l\'edmete del rango (t). De forma an\'e1loga he hecho con la histeresis, pero ajustando como si el resultado hubiera sido 0.\
+\
+Dudas\
+Si la consigna est\'e1 por debajo de la temperatura, el PID devuelve valores negativos que se ajustan a 0 por el antiWindup  y la caldera estar\'e1 apagada. \
+Si la consigna est\'e1 por encima de la temperatura, el PID devuelve valores positivos que enciende la cadera parte del ciclo, si no se alcanza la consigna la salida sigue subiendo hasta que se satura y el antiWindup ajusta a (t), modulando el integrador (que puede quedar alto).\
+Si produce un cambio manual o programado en la consigna, ser\'e1 capaz el regulador PID en el estado que haya quedado de abordar el cambio?, o hay que iniciar el proceso PID cada vez que cambia la consigna?.\
+\
+De momento la escena reguladorPID se arranca manualmente pero la idea es que se inicie/reinicie desde el termostato\
+\
+En el mainLoop del VD solo hay que configurar los iconos y el offset de la sonda\
+En la escena adem\'e1s de los par\'e1metros del PID, hay que configurar el id del VD\
+
+\b \
+2016-01-24\
+
+\b0 WindUp.\
+Lo que he implementado lo he sacado del manual \'93ApuntesControlPID (Mauricio Am\'e9stegui\'94 que me pasaste.\
+El rec\'e1lcalo trabaja como sigue: cuando la salida se satura, la integral es recalculada tal que su nuevo valor proporciona una salida en el l\'edmite de la saturaci\'f3n. Tiene la ventaja de no reinicializar el integrador instant\'e1neamente, pero s\'ed din\'e1micamente con una constante de tiempo\
+Esto es lo que he tratado de implementar.\
+\
+- Cuando se cambia la consigna, por ejemplo de modo manual, o cuando se selecciona ECO o pasas de Manual a AUTO o al reves... no se interrumpe el ciclo del actual PID y se recalcula todo.\'a0\
+Ahora el ciclo PID no se para nunca, esta ejecutados en la escena, es correcto?\
+\
+- OffSet Sensor: En mi caso ocurre algo muy raro... si pongo offset=0 el valor de la lectura del sensor que muestra el VD no coincide con el valor del sensor.\'a0\
+Deber\'eda coincidir con el valor del sensor el c\'f3digo lo \'fanico que hay es:\
+	 value = value + offSetSonda\
+\
+- Thigspeak, creo que debe incluir dos cosas m\'e1s que son las que nos interesa graficar:\
+OK lo a\'f1ado.\
+\'a0\'a0\
+- L\'edmites: No hay un l\'edmite inferior de tiempo de encendido. Tal como te dec\'eda el l\'edmite inferior deber\'edamos poder seleccionarlo mediante una variable. En mi caso ser\'e1 de 1 min para iniciar las pruebas. Es decir, si salida<1 min entonces no enciendo la caldera.\'a0\
+OK, lo voy a agregar al c\'f3digo como una variable\
+\
+- Debug Loop Principal en VD: En modo INFO solo me sale el primer inicio OFF y ah\'ed se queda para siempre. \'bfEs normal?\
+No, no es normal, deber\'eda dar informaci\'f3n cada ciclo de tiempo con la informaci\'f3n de la salida y cada cambio de estado de la caldera ON/OFF\
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 18:59:32: \cf3 E=0.9, P=135, I=138, D=0, S=273\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 18:59:32: \cf3 ON\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:04:04: \cf3 OFF\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:09:34: \cf3 E=0.9, P=135, I=156, D=0, S=291\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:09:34: \cf3 ON\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:14:21: \cf3 OFF\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:19:33: \cf3 E=0.8, P=120, I=174, D=-3.9999999999999, S=290\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:19:33: \cf3 ON\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs32 \cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs22 \cf1 \cb0 [DEBUG] 19:24:22: \cf3 OFF\cf1 \cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf2 \
+\
+- Caracteres especiales botones: No se como has conseguido meterlos... en la anterior versi\'f3n iban bien, pero en esta no funcionan. Aparece un recuadro sin m\'e1s.\
+\pard\pardeftab720\partightenfactor0
+
+\f3 \cf2 \uc0\u55356 \u57115 
+\f0  
+\f3 \uc0\u55357 \u56615 
+\f0   
+\f3 \uc0\u55357 \u56613 
+\f0   
+\f3 \uc0\u55357 \u56600  
+\f4 http://www.copypastecharacter.com/all-characters
+\f0 \
+Son caracteres, he observado que desde que he actualizado a la versi\'f3n 4.070 en chrome no me aparecen esos caracteres pero en safari si.\
+\
+- Iconos: Solo se aplican los iconos cuando est\'e1 ON/OFF, pero si presionamos un bot\'f3n de cualquier tipo el icono que muestra es del cubo 3D del VD.\
+A mi me aparece el cubo 3D un instante, hasta que pasa un loop del c\'f3digo y se actualiza.\
+Este problemas de los iconos junto con lo de el que el debug solo indique OFF y se para, da la sensaci\'f3n de que el VD estuviera parado, en principio deber\'eda ejecutarse en loop  por defecto e ir actualizando el panel.\
+\
+Esta semana intento incluir kickderivative y cambio ON/OFF\
+\
+Por orden\
+\pard\pardeftab720\partightenfactor0
+
+\b \cf2 Reset del antiwindup
+\b0 \
+ errAcum=0 hasta que newErr<=0-5 and newErr>=-0.5\
+\
+\
+
+\b antiwindup \
+
+\b0 si newErr <=.5 y >=-.5 comprobar que newErr*KI < ciclo\
+y mayor que 0\
+\'a0si es mayor limitar \'a0la salida = ciclo y errAcum = lastErr\
+\
+AU\'cd argumentar \
+-- devolver el error para acumular en el integrador para que el resultado\
+     -- sea igual a tiempo de cliclo y devolver tiempo de cliclo como resultado\
+    return (tiempo - (P + D)) / kI, tiempo\
+\
+Que pasa si SalidaIntegral < ciclo pero SalidaTotal > ciclo?\
+\
+
+\b Integraci\'f3n normal\
+\pard\pardeftab720\sl320\partightenfactor0
+
+\b0 \cf4 \uc0\u8234 ErrAcum+=Error\cf2 \uc0\u8236 \
+\pard\pardeftab720\partightenfactor0
+\cf2 \
+pero que pasa cuando el error vuelve a alejarse de la consigna?, que hago con el errAcum?\
+Lo reseteas a cero\
+\
+Histeresis\
+Calculas la salida total y limito entre ciclo y 0\
+Si (Salida>0) y ValorAbsoluto(Error)<Histeresis Entoces Salida=0.\
+\
+L\'edmite de acci\'f3n
+\b \
+\
+\pard\pardeftab720\partightenfactor0
+
+\b0 \cf2 He limitado la salida proporcional para que nunca sea menor a cero. No tiene sentido que sea negativa.\
+\
+\'a0-- calcular proporcional y si es negativo dejarlo a cero\
+\'a0 \'a0 PID.proporcional = PID.newErr * K.kP\
+\'a0 \'a0 if PID.proporcional < 0 then\
+\'a0 \'a0 \'a0 PID.proporcional = 0\
+\'a0 \'a0 \'a0 toolKit:log(INFO, 'proporcional < 0')\
+\'a0 \'a0 end\
+\
+Quiero hacer otro cambio en cuanto pueda para mejorar la respuesta. El l\'edmite de m\'ednimo tiempo encendido de 60 seg aplica la siguiente l\'f3gica:\
+\
+Si tiempo de ON es < 60 entonces tiempo encendido=0.\
+\
+Quiero que siga siendo as\'ed solo cuando vas de subida. Si vas de bajada lo dejar\'e9:\
+\
+Si tiempo de ON es < 60 entonces tiempo encendido=60.\
+\
+\'bfPor qu\'e9? Porque si no lo hacemos as\'ed la temperatura baja mucho hasta que vuelve a encenderse por culpa de ese m\'ednimo. Sin embargo subiendo ayuda mucho a llegar a la consigna de forma suave. Esta tarde lo modifico. Ahora quiero ver como aproxima a la consigna sin joder el ciclo.}

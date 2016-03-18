@@ -2,7 +2,11 @@
 {\fonttbl\f0\fswiss\fcharset0 ArialMT;\f1\fnil\fcharset0 Verdana;\f2\froman\fcharset0 TimesNewRomanPSMT;
 }
 {\colortbl;\red255\green255\blue255;\red26\green26\blue26;\red255\green0\blue0;\red15\green112\blue1;
+<<<<<<< HEAD
 }
+=======
+\red16\green60\blue192;}
+>>>>>>> OnOff
 \paperw11900\paperh16840\margl1440\margr1440\vieww31620\viewh20820\viewkind0
 \deftab720
 \pard\pardeftab720\partightenfactor0
@@ -12,6 +16,7 @@ CQCLQRAU070GEOYY\
 \
 - Cuando el termostato se reinicia (por ejemplo si se reinicia el HC2) se queda sin sonda de temperatura y sin actuador por defecto.\
 Esto implica que te quedas sin calefacci\'f3n. Creo que una vez lo programas, debe formar parte de la variable global para recuperar su estado.\
+\pard\pardeftab720\partightenfactor0
 \cf3 Correcto, el problema se porque el dispositivo ahora se reincida cade vez que se reincida de verdad(por ejemplo se grava), habr\'eda que lo implementarlo en el pr\'f3ximo release y poner un bot\'f3n reset.\
 El problema es refrescar el estado visual en el arranque, me va a costar un poco m\'e1s.\cf2 \
 \
@@ -74,8 +79,10 @@ end\cf2 \
 Intervalo no hace nada. Lo he comentado.\
 \cf3 Ahora intervalo me sirve como intervalo de refresco general del termostato.\
 Va dando vueltas refrescando los valores, experto el PID que lo hace cada ciclo (o no exactamente te lo explico  mas abajo)\
+\pard\pardeftab720\partightenfactor0
 \cf2 \
 He subido un poco mas la acci\'f3n integral viendo como funciona en mi casa. Ya haremos un ajuste fino.\
+\pard\pardeftab720\partightenfactor0
 \cf3 Estos valores se calculan de forma emp\'edrica?. vamos probando hasta optimizar o hay otro modo?.\cf2 \
 Tiempo de ciclo en mi caso es de 10 min por el tipo de calefacci\'f3n.\'a0\
 He subido un poco las hist\'e9resis para hacer pruebas.\
@@ -162,6 +169,7 @@ Sigo con las pruebas y hay algo anormal en el bucle while. Me explico con este l
 \f0\fs26 \cf4 \
 \pard\pardeftab720\partightenfactor0
 \cf2 La primera iteraci\'f3n es correcta... Se activa el c\'e1lculo a los 10 min. Lo primero que no deber\'eda ocurrir es que calentase al ser el error menor a la hist\'e9resis. Esto a\'fan no est\'e1 implementado y es normal que ocurra. Pero lo que no es normal es la segunda iteracion... ya que si obviamos el tema hist\'e9resis, deber\'eda calentar 48 segundos para despu\'e9s apagarse durante 9 min y 12 segundos, y dentro de 10 min hacer una nueva iteracci\'f3n. \'bfMe explico? Lo de 10 min es el tema de los ciclos/hora (6 en mi caso).\
+\pard\pardeftab720\partightenfactor0
 \cf3 Esto tiene que ver con mi forma de ver el tema, lo que hab\'eda entendido yo de como deber\'eda funcionar. Mi idea era:\
 \
  Inicialmente se calcula el PID que como todo est\'e1 a 0 devuelve APAGADO y el tiempo correspondiente a un ciclo\'85 ->\
@@ -189,6 +197,7 @@ La K afecta directamente al error, es decir, a m\'e1s error m\'e1s acci\'f3n de 
 De momento nos quedamos con la forma emp\'edrica y ya implementaremos el autosintonizado. En la industria se suele emplear de forma burda el autosintonizado y despu\'e9s se hace un ajuste fino de forma emp\'edrica.\
 \
 Por \'faltimo... Ciclo de trabajo. El sistema que propones no funcionar\'e1 nunca bien. Me explico... toda la teor\'eda de control de sistemas din\'e1micos est\'e1 dise\'f1ada/probada y desarrollada matem\'e1ticamente para una duraci\'f3n de un periodo de muestreo (ciclo) constante. Las f\'f3rmulas que aplicaremos son las que emplea la industria en cualquier proceso que requiere un control del tipo que sea, bien sea un termostato, un control de nivel de un dep\'f3sito o el control de un cilindro en la sonda Pathfinder de la NASA. La forma de trabajar el termostato debe ser la siguiente: Establecer el n\'famero de ciclos hora en funci\'f3n de la inercia t\'e9rmica del sistema de calefacci\'f3n. Supongamos que sea de 6 ciclos/hora. Eso supone que cada 10 min se debe recalcular. En las primeras iteraciones la salida ser\'e1 de encender la calefacci\'f3n 10 min o m\'e1s. Lo limitamos a 10 min. Cuando la casa se vaya calentando el regulador PID ir\'e1 precisamente modulando la salida (tiempo de encendido) para aproximarnos a la temperatura de consigna de la forma m\'e1s \'f3ptima.\
+\pard\pardeftab720\partightenfactor0
 \cf3 El sistema PID efectivamente ir\'e1 modulando la salida (tiempo de encendido), pero me cuesta entender porque esperar apagados el resto del ciclo y no usar el sistema PID para calcular el siguiente (tiempo de apagado o encendido), si tu lo dices me lo creo, aunque me gustar\'eda llegar a entenderlo. (quiz\'e1 alg\'fan d\'eda).\cf2 \
  Qu\'e9 es \'f3ptimo lo decidiremos nosotros. Por tanto tendremos salidas donde nos pida que encendamos la calefacci\'f3n 3 min... y el resto del tiempo debemos esperar para recalcular nuevamente. No podemos recalcular nuevamente hasta cumplido el ciclo de 10 min. Si recalculas vas a llegar igualmente a la consigna, pero de forma menos eficiente. Est\'e1 demostrado. Tendr\'e1s much\'edsimos problemas para acercarte a la consigna de forma fina.\
 \
@@ -218,8 +227,114 @@ Ma\'f1ana me pongo a arreglar el ciclo para que encienda el tiempo de salida y e
 En el sistema de calefacci\'f3n solo tenemos la facultada de empujar o dejar de empujar, si la temperatura real est\'e1 por debajo de la temperatura de consigna podemos encender la caldera.\
 En un sistema b\'e1sico se realizan muestreos regulares de la temperatura hallando la diferencia, si hay error encendemos la caldera sin no hay error se apaga y se repite el muestreo.\
 En un siguiente sistema se introduce el concepto de inercia t\'e9rmica y se puede apagar la caldera antes de que se llegue a la consigna.\
+<<<<<<< HEAD
 En un sistema PID se optimizar\'eda el momento en el que se apaga la caldera alimentando al propio PID con los \
 \
 \
+=======
+En un sistema PID se optimizar\'eda el momento en el que se apaga la caldera alimentando al propio PID con el valor de la Salida\
+Si la salida no para de aumentar es que no se est\'e1 consiguiendo la temperatura y habr\'e1 que suponer que cuesta mucho y si disminuye cuesta menos\'85\
 \
+2016-01-21\
+Implementar 
+\b autoausente
+\b0 , detectores de presencia para determinar si hay alguien en casa.\
+\
+\pard\pardeftab720\partightenfactor0
+
+\b \cf2 Ajuste de consiga
+\b0 \
+Cada vez que se ajusta la consiga, hay que iniciar el ciclo de calefacci\'f3n conservando los valores del PID\
+\
+
+\b Tiempo m\'ednimo de acci\'f3n
+\b0 \
+local minTimeAction = 60.\
+Se ha implementado dentro del windUp, de tal forma que si el resultado es menor que el tiempo m\'ednimo de acci\'f3n se ajusta el integrador y la salida a 0 para que no se encienda \
+\
+
+\b Tiempo m\'ednimo de de apagado\
+
+\b0 Si hay que apagar menos tiempo que el m\'ednimo de acci\'f3n no apagar y dejar que finalice el ciclo encendido.\
+Por ejemplo la salida es 558 de un ciclo de 600, esta hace que encienda la caldera durante 558s y se apague durante 52s, y seg\'fan el siguiente c\'e1lculo decidir\'e1 si sigue encendido (que es lo l\'f3gico) y cuanto tiempo el siguiente ciclo.\
+Se implementar\'eda dentro del windup, de tal forma que si (tiempo de cliclo -  tiempo m\'ednimo) < resultado se ajuste el resultado al tiempo de ciclo.\
+\
+
+\b kickderivative
+\b0 \
+\pard\pardeftab720\partightenfactor0
+{\field{\*\fldinst{HYPERLINK "http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-derivative-kick/"}}{\fldrslt \cf5 \ul \ulc5 http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-derivative-kick/}}\
+cambio ON/OFF\
+\pard\pardeftab720\partightenfactor0
+{\field{\*\fldinst{HYPERLINK "http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-onoff/"}}{\fldrslt \cf5 \ul \ulc5 http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-onoff/}}\cf5 \ul \ulc5 \
+\pard\pardeftab720\partightenfactor0
+{\field{\*\fldinst{HYPERLINK "http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-initialization/"}}{\fldrslt \cf5 http://brettbeauregard.com/blog/2011/04/improving-the-beginner%E2%80%99s-pid-initialization/}}\
+\pard\pardeftab720\partightenfactor0
+\cf2 \ulnone \
+
+\b Thigspeak
+\b0 ,\
+creo que debe incluir dos cosas m\'e1s que son las que nos interesa graficar:\
+local payload = "key="..thingspeakKey.."&field1="..PID.newErr.. "&field2="..PID.proporcional.."&field3="..PID.integral.."&field4="..PID.derivativo.."&field5="..PID.result.."&field6="..targetLevel.."&field7="..termostatoVirtual.value\
+\
+
+\b histeresis solo en subida
+\b0 \
+Aplicar el filtro del histeresis solo si la temperatura viene subiendo\
+>>>>>>> OnOff
+\
+
+\b sonda virtual\
+
+\b0  funci\'f3n para obtener la temperatura de la sonda virtual, escribir a \
+-- continuaci\'f3n de 'return' el c\'f3digo o expresi\'f3n para obtener la temperatura\
+\
+
+\b Si se reinicia el HC2 que se recupere el PID\
+\
+Cambio de ajustes de calculo PID\
+
+\b0   --[[c\'e1lculo PID]]\
+  -- comprobar si se ha cumplido un ciclo para volver a calcular el PID\
+    -- inicializar el PID\
+    -- calcular error\
+    -- calcular proporcional, integral y derivativo (inicialmete)\
+    -- anti derivative kick usar (currentTemp - lastInput) en lugar de error\
+    -- obtener el resultado (inicialmente)\
+    --[[reset del antiwindup\
+    si el error no esta comprendido dentro del \'e1mbito de actuaci\'f3n del\
+    integrador, no se usa el c\'e1lculo integral y se acumula error = 0]]\
+   \cf3  if PID.newErr > antiwindupReset and PID.newErr < (0 - antiwindupReset)\'85\cf2 \
+      -- rectificar el resultado sin integrador\
+    --[[antiwindup del integrador\
+    si el c\'e1lculo integral es mayor que el tiempo de ciclo, se ajusta el\
+    resultado al tiempo de ciclo y no se acumula el error]]\
+    \cf3 elseif PID.integral > cycleTime then\'85\cf2 \
+    --[[uso normal del integrador\
+    se calcula el resultado con el error actual y se acumula al error anterior]]\
+    \cf3 else\'85\cf2 \
+    --[[antiwindup de la salida\
+    si el resultado es mayor que el que el tiempo de ciclo, se ajusta el\
+    resultado al tiempo de ciclo y no se acumula el error]]\
+   \cf3  if PID.result > cycleTime\'85\cf2 \
+    --[[limitador por histeresis\
+    si error es menor o igual que la histeresis limitar la salida a 0]]\
+   \cf3  if PID.result > 0 and math.abs(PID.newErr) < histeresis\'85\cf2 \
+    --[[l\'edmitador de acci\'f3n m\'ednima\
+    si el resultado es menor que el tiempo m\'ednimo de acci\'f3n, ajustar a 0]]\
+   \cf3  if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then\'85\cf2 \
+    -- informar\
+    -- recordar algunas variables para el proximo ciclo\
+    -- ajustar temperatura de consigna\
+    -- ajustar el punto de cambio de estado de la Caldera\
+    -- ajustar el nuevo instante de c\'e1lculo PID\
+    -- a\'f1adir tiemstamp al PID\
+    -- actualizar dispositivo\
+    -- informar y decir al termostato que actualice las gr\'e1ficas invocando \
+     al bot\'f3n statusButton del termostato\
+--[[--------------------------------------------------------------------------]]\
+
+\b \
+
+\b0 \
 }

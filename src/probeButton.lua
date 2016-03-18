@@ -10,6 +10,10 @@
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
+-- obtener id del termostato
+local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.idLabel.value')
+local p2 = string.find(idLabel, ' Panel')
+local thermostatId =  tonumber(string.sub(idLabel, 13, p2))
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
@@ -52,6 +56,9 @@ for key, value in pairs(devices) do
     table.insert(temperatureSensors, temperatureSensor)
   end
 end
+-- añadir sonda virtual
+local temperatureSensor = {id = 0, name = 'Sonda Virtual'}
+table.insert(temperatureSensors, temperatureSensor)
 
 -- seleccionar el siguiete sensor que corresponda
 temperatureSensor = fibaro:get(_selfId, 'ui.probeLabel.value')
@@ -71,8 +78,8 @@ end
 fibaro:call(_selfId, "setProperty", "ui.probeLabel.value",
  temperatureSensors[myKey].id..'-'..temperatureSensors[myKey].name)
 -- recuperar dispositivo
-local termostatoVirtual = getDevice(_selfId)
+local termostatoVirtual = getDevice(thermostatId)
 --actualizar dispositivo
 termostatoVirtual.probeId = temperatureSensors[myKey].id
-fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 --[[--------------------------------------------------------------------------]]
