@@ -223,7 +223,7 @@ function calculatePID()
   -- ajustar el punto de cambio de estado de la Caldera
   PID.changePoint = os.time() + PID.result
   -- añadir tiemstamp al PID
-  PID.timestamp = os.time(), PID.result
+  PID.timestamp = os.time()
 
   -- actualizar dispositivo
   setObjet('PID', PID)
