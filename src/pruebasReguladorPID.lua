@@ -23,17 +23,8 @@ if fibaro:countScenes() > 1 then
 end
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
-local release = {name='reguladorPID', ver=1, mayor=0, minor=2}
--- ciclos por hora ej. 6 cyclesH = 3600/6 = 1 cliclo cada 600seg.
-local cyclesH = 6
--- tiempo mínimo de para accionar calefacción por debajo del cual no se enciende
-local antiwindupReset = 0.94
-local minTimeAction = 60
-local histeresis = 0.64  -- histeresis en grados
-local kP = 465          -- Proporcional
-local kI = 31           -- Integral
-local kD = 62           -- Derivativo
-OFF=1;INFO=2;DEBUG=3                -- referencia para el log
+local release = {name='reguladorPID', ver=2, mayor=0, minor=0}
+OFF=0;ERROR=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
@@ -47,6 +38,7 @@ if not toolKit then toolKit = {
     if nivelLog >= level then
       local color = 'yellow'
       if level == INFO then color = 'green' end
+      if level == ERROR then color = 'red' end
       fibaro:debug(string.format(
       '<%s style="color:%s;">%s</%s>', "span", color, mensaje, "span")
       )
@@ -66,60 +58,50 @@ end
 
 --[[getDevice(nodeId)
     (number) nodeId: número del dispositivo a recuperar de la variable global
-  recupera el dispositivo virtual desde la variable global --]]
-function getDevice(nodeId)
+  recupera el dispositivo virtual desde la variable global
+  lastInput
+  cyckesH
+  targetLevel --]]
+function getObject(varName)
   -- si  exite la variable global recuperar dispositivo
-  local device = isVariable('dev'..nodeId)
-  if device and device ~= 'NaN' and device ~= 0 and device ~= '' then
-    device = json.decode(device)
-    -- si esta iniciado devolver el dispositivo
-    if device.nodeId then
-      return device
-     end
+  local object = isVariable(varName)
+  if object and object ~= 'NaN' and object ~= 0 and object ~= '' then
+    object = json.decode(object)
+    -- devolver el último objeto
+    table.sort(object, function (a1, a2) return a1.id < a2.id end)
+    return object[#object]
   end
   -- en cualquier otro caso error
   return false
 end
 
---[[Inicializar()
-  Inicializa variables --]]
-function Inicializar(thermostatId)
-  local termostatoVirtual = getDevice(thermostatId)
-  local K = termostatoVirtual.K
-  if not K.cyclesH or K.cyclesH == 0 then K.cyclesH = cyclesH end
-  if not K.antiwindupReset or K.antiwindupReset == 0 then
-    K.antiwindupReset = antiwindupReset
+--[[setObjet(varName, object)]]
+function setObjet(varName, object)
+  -- recuperar objetos
+  local objects = isVariable(varName)
+  if objects then
+    objects = json.decode(objects)
+    -- recorer la tabla para buscar el objetos y cambiar el valor
+    for key, value in pairs(objects) do
+      if value.id == object.id then
+        objects[key] = value
+        break
+      end
+    end
+    -- guardar objetos
+    fibaro:setGlobal(varName, json.encode(objects))
+    return true
   end
-  if not K.minTimeAction or K.minTimeAction == 0 then
-    K.minTimeAction = minTimeAction
-  end
-  if not K.histeresis or K.histeresis == 0 then K.histeresis = histeresis end
-  if not K.kP or K.kP == 0 then K.kP = kP end  -- Proporcional
-  if not K.kI or K.kI == 0 then K.kI = kI end  -- Integral
-  if not K.kD or K.kD == 0 then K.kD = kD end  -- Derivativo
-  -- actualizar dispositivo
-  termostatoVirtual.K = K
-  fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
-  -- temperatura en la iteracion anterior se inicia con la temperatura actual
-	local lastInput = termostatoVirtual.value
-  -- instante hasta próximo ciclo, se inicia con el instante actual
-  local cicloStamp = os.time()
-  -- intante de cambio de estado de la Caldera, se inicia con el instante actual
-  local changePoint = os.time()
-  -- valor de la temperatura de consigna, se inicia con la consigna actual
-  local setPoint = termostatoVirtual.targetLevel
-  -- devilver las variables inicializadas
-	return lastInput, cicloStamp, changePoint, setPoint
+  return false
 end
 
-function updateStatistics(termostatoVirtual)
-  local PID = termostatoVirtual.PID
+function updateStatistics(PID)
   local postURL = "http://api.thingspeak.com/update"
   local postData = "key="..thingspeakKey.."&field1="..PID.newErr..
   "&field2="..PID.proporcional.."&field3="..PID.integral..
   "&field4="..PID.derivativo.."&field5="..PID.result..
-  "&field6="..termostatoVirtual.targetLevel..
-  "&field7="..termostatoVirtual.value
+  "&field6="..PID.targetLevel..
+  "&field7="..PID.value
 
   local httpClient = net.HTTPClient({timeout=2000})
   httpClient:request(postURL, {
@@ -146,16 +128,12 @@ function updateStatistics(termostatoVirtual)
 end
 
 --[[cálculo PID]]
-function calculatePID(termostatoVirtual)
-  local tiempoCiclo = 3600000 / termostatoVirtual['K'].cyclesH
+function calculatePID(PID)
   -- inicializar el PID
-  local PID = termostatoVirtual.PID
-  local K = termostatoVirtual.K
+  local K = PID.K
 
-  --local PID = {result = 0, newErr = 0, acumErr = acumErr, proporcional = 0,
-  -- integral = 0, derivativo = 0}
   -- calcular error
-  PID.newErr = termostatoVirtual.targetLevel - termostatoVirtual.value
+  PID.newErr = PID.targetLevel - PID.value
 
   -- calcular proporcional y si es negativo dejarlo a cero
   PID.proporcional = PID.newErr * K.kP
@@ -166,7 +144,7 @@ function calculatePID(termostatoVirtual)
 
   -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
   -- lugar de error
-  PID.derivativo = ((termostatoVirtual.value - PID.lastInput) * K.kD) * -1
+  PID.derivativo = ((PID.value - PID.lastInput) * K.kD) * -1
 
   --[[reset del antiwindup
   si el error no esta comprendido dentro del ámbito de actuación del
@@ -218,7 +196,7 @@ function calculatePID(termostatoVirtual)
   en histéresis. Eso provoca acciones integrales diferidas muy grandes]]
   if PID.result > 0 and math.abs(PID.newErr) <= K.histeresis then
     PID.acumErr = 0
-    if PID.lastInput < termostatoVirtual.value then -- solo de subida
+    if PID.lastInput < PID.value then -- solo de subida
       PID.result = 0
       toolKit:log(INFO, 'histéresis error ∓'..K.histeresis)
     end
@@ -242,40 +220,49 @@ function calculatePID(termostatoVirtual)
   -- recordar algunas variables para el proximo ciclo SE conservan en el PID
   --result, lastInput, acumErr = PID.result, termostatoVirtual.value,
   --PID.acumErr
-  PID.lastInput = termostatoVirtual.value
-  -- ajustar temperatura de consigna
-  setPoint = termostatoVirtual.targetLevel
+  PID.lastInput = PID.value
   -- ajustar el punto de cambio de estado de la Caldera
-  changePoint = os.time() + PID.result
-  -- ajustar el nuevo instante de cálculo PID
-  cicloStamp = os.time() + (3600 / K.cyclesH)
+  PID.changePoint = os.time() + PID.result
   -- añadir tiemstamp al PID
   PID.timestamp = os.time(), PID.result
 
   -- actualizar dispositivo
-  termostatoVirtual.PID = PID
-  fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
+  setObjet('PID', PID)
 
-  -- informar y decir al termostato que actualice las gráficas
+  -- informar
   toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
   toolKit:log(INFO, '-------------------------------------------------------')
 
-  -- actualizar las gráficas
-  updateStatistics(termostatoVirtual)
+  -- actualizar las estadísticas
+  updateStatistics(PID)
 
-  -- esperar al proximo ciclo
-  setTimeout(function() calculatePID(termostatoVirtual) end,
-   3600000 / termostatoVirtual['K'].cyclesH)
-end
+  -- esperar al proximo ciclo o terminar
+  if PID.alive then
+    setTimeout(function() calculatePID(PID) end,
+    3600000 / K.cyclesH)
+  else
+    toolKit:log(INFO, 'Fin')
+  end
+
+end -- function
+
 
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
 toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 toolKit:log(INFO, '-------------------------------------------------------')
 
--- Inicializar Variables
-local lastInput, cicloStamp, changePoint, setPoint = Inicializar(thermostatId)
+--[[
+PID='{"K":{"antiwindupReset":1,"histeresis":0.3,"kD":35,"kP":275,"kI":40,"minTimeAction":60,"cyclesH":6,"tuneTime":60}},"id":0,"alive":true,"timestamp":0,"derivativo":0,"newErr":0,"acumErr":0,"result":0,"proporcional":0,"lastInput":0,"integral":0}'
+fibari:setGlobal('PID', PID)
+]]
+
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
-local termostatoVirtual = getDevice(thermostatId)
-setTimeout(function() calculatePID(termostatoVirtual) end, 0)
+local PID = getObject('PID')
+toolKit:log(DEBUG, json.encode(PID))
+if PID then
+  setTimeout(function() calculatePID(PID) end, 1)
+else
+  toolKit:log(ERROR, 'No hay variable para PID´s')
+end
