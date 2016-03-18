@@ -56,20 +56,18 @@ function isVariable(varName)
   return false
 end
 
---[[getDevice(nodeId)
-    (number) nodeId: número del dispositivo a recuperar de la variable global
-  recupera el dispositivo virtual desde la variable global
-  lastInput
-  cyckesH
-  targetLevel --]]
+--[[getObject(varName)
+    (string) varName: nombre de la variable global que almacena los objetos
+    si exite la variable global recuperar el último objeto
+--]]
 function getObject(varName)
-  -- si  exite la variable global recuperar dispositivo
-  local object = isVariable(varName)
-  if object and object ~= 'NaN' and object ~= 0 and object ~= '' then
-    object = json.decode(object)
+  -- si  exite la variable global recuperar objetos
+  local objects = isVariable(varName)
+  if objects and objects ~= 'NaN' and objects ~= 0 and objects ~= '' then
+    objects = json.decode(objects)
     -- devolver el último objeto
-    table.sort(object, function (a1, a2) return a1.id < a2.id end)
-    return object[#object]
+    table.sort(objects, function (a1, a2) return a1.id < a2.id end)
+    return objects[#objects]
   end
   -- en cualquier otro caso error
   return false
@@ -128,8 +126,9 @@ function updateStatistics(PID)
 end
 
 --[[cálculo PID]]
-function calculatePID(PID)
+function calculatePID()
   -- inicializar el PID
+  PID = getObject('PID')
   local K = PID.K
 
   -- calcular error
@@ -243,26 +242,18 @@ function calculatePID(PID)
   else
     toolKit:log(INFO, 'Fin')
   end
-
 end -- function
-
 
 --[[------- INICIA LA EJECUCION ----------------------------------------------]]
 toolKit:log(INFO, release['name']..
 ' ver '..release['ver']..'.'..release['mayor']..'.'..release['minor'])
 toolKit:log(INFO, '-------------------------------------------------------')
 
---[[
-PID='{"K":{"antiwindupReset":1,"histeresis":0.3,"kD":35,"kP":275,"kI":40,"minTimeAction":60,"cyclesH":6,"tuneTime":60}},"id":0,"alive":true,"timestamp":0,"derivativo":0,"newErr":0,"acumErr":0,"result":0,"proporcional":0,"lastInput":0,"integral":0}'
-fibari:setGlobal('PID', PID)
-]]
-
-
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 local PID = getObject('PID')
 toolKit:log(DEBUG, json.encode(PID))
 if PID then
-  setTimeout(function() calculatePID(PID) end, 1)
+  setTimeout(function() calculatePID() end, 1)
 else
   toolKit:log(ERROR, 'No hay variable para PID´s')
 end
