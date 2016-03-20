@@ -23,13 +23,13 @@ Como te coment\'e9 el sistema sistema consta de dos VD, una escena y una variabl
 	local actuatorOn = '
 \b setMode
 \b0 '\
-l	ocal actuatorOff = '
+	local actuatorOff = '
 \b setMode
 \b0 '\
 	local actuatorStatus = '
 \b mode
 \b0 '\
-Una vez cargado el VD TermostatoVirtual, en la pantalla del mismo parecer\'e1 en la parte inferior el id asignado al dispositivo.\
+Una vez cargado el VD TermostatoVirtual, en la pantalla del mismo parecer\'e1 en la parte inferior el id asignado al dispositivo. \
 \
 2 Importar VD ConfigurardorTermost y configurar en el mainLoop la l\'ednea donde se indica el id obtenido del dispositivo cargado anteriormente, as\'ed como el id del icono\
 	if not thermostatId then thermostatId = 
@@ -39,7 +39,7 @@ Una vez cargado el VD TermostatoVirtual, en la pantalla del mismo parecer\'e1 en
 \b 1068
 \b0  end\
 En el c\'f3digo del bot\'f3n \'93statusButton\'94 se puede configurar la clave the thingspeak\
-	local thingspeakKey = 'CQCLQRAU070GEOYY'\
+	local thingspeakKey = \'91**************************\'92\
 En propio panel se pueden seleccionar tanto la sonda como el actuador. \
 \
 3 Crear la escena reguladorPID y pegar el c\'f3digo, donde se han de configurar los id tanto del VD TermostatoVirtual como de VD ConfigurardorTermost\
