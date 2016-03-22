@@ -70,7 +70,7 @@ end
 crea una varaible global para almacenar la tabla que representa el
 dispositivo y lo inicializa. --]]
 function resetDevice(nodeId)
-  -- si no exite la variable global
+  -- si no existe la variable global
   if not isVariable('dev'..nodeId) then
     -- intentar crear la variableGlobal
     local json = '{"name":"'..'dev'..nodeId..'", "isEnum":0}'

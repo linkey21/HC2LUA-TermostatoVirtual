@@ -225,8 +225,6 @@ function calculatePID()
   -- añadir tiemstamp al PID
   PID.timestamp = os.time()
 
-  -- actualizar dispositivo
-  setObjet('PID', PID)
 
   -- informar
   toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
@@ -237,8 +235,9 @@ function calculatePID()
 
   -- esperar al proximo ciclo o terminar
   if PID.alive then
-    setTimeout(function() calculatePID(PID) end,
-    3600000 / K.cyclesH)
+    PID.process = setTimeout(function() calculatePID(PID) end, 360000 / K.cyclesH)
+    -- actualizar dispositivo
+    setObjet('PID', PID)
   else
     toolKit:log(INFO, 'Fin')
   end
