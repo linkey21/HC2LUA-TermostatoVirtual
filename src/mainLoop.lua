@@ -8,32 +8,30 @@
 -- id de los iconos ON OFF
 local iconON = 1067
 local iconOFF = 1066
+local thingspeakKey = 'CQCLQRAU070GEOYY'
 --[[ nombre de la funcion que hay que usar para encender/apagar el actuador y
      delnombre de la propieda que muestra el estado
-local actuatorOn = 'turnOn'
-local actuatorOff = 'turnOff'
-local actuatorStatus = 'value'
---]]
 local actuatorOn = 'setMode'
 local actuatorOff = 'setMode'
 local actuatorStatus = 'mode'
+--]]
+local actuatorOn = 'turnOn'
+local actuatorOff = 'turnOff'
+local actuatorStatus = 'value'
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
 local virtualProbe = function (self, ...)
-  local t = fibaro:getValue(389, 'value')
-  return math.floor((t - ((41 - t) / t)) * 100) / 100
+  return 0
 end
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
-local release = {name='termostatoVirtual', ver=3, mayor=0, minor=0}
+local release = {name='termostatoVirtual', ver=2, mayor=0, minor=0}
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 mode[3]='CALIBRADO_F1'; mode[4]='CALIBRADO_F2'; mode[5]='CALIBRADO_FIN'
-if not oN then oN = true end
-if not timestampPID then timestampPID = os.time() end
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
 nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -54,112 +52,6 @@ if not toolKit then toolKit = {
     end
   end)
 } end
-
---[[calculatePID()
-  (table) PID:  tabla que representa el estado actual del PID
-  Calcula el PID y devuelve una tabla que lo representa --]]
-function calculatePID(PID)
-  -- calcular error
-  PID.newErr = PID.targetLevel - PID.value
-
-  -- calcular proporcional y si es negativo dejarlo a cero
-  PID.proporcional = PID.newErr * kP
-  if PID.proporcional < 0 then
-    PID.proporcional = 0
-    toolKit:log(INFO, 'proporcional < 0')
-  end
-
-  -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
-  -- lugar de error
-  PID.derivativo = ((PID.value - PID.lastInput) * kD) * -1
-
-  --[[reset del antiwindup
-  si el error no esta comprendido dentro del ámbito de actuación del
-  integrador, no se usa el cálculo integral y se acumula error = 0]]
-  if math.abs(PID.newErr) > antiwindupReset then
-  --if PID.newErr <= antiwindupReset then
-    -- rectificar el resultado sin integrador
-    PID.integral = 0
-    PID.acumErr = 0
-    toolKit:log(INFO, 'reset antiwindup del integrador ∓'..antiwindupReset)
-
-  --[[uso normal del integrador
-  se calcula el resultado con el error acumulado anterior y se acumula el
-  error actual al error anterior]]
-  else
-    -- calcular integral
-    PID.integral = PID.acumErr * kI
-    PID.acumErr = PID.acumErr + PID.newErr
-  end
-
-  --[[antiwindup del integrador
-  si el cálculo integral es mayor que el tiempo de ciclo, se ajusta el
-  resultado al tiempo de ciclo y no se acumula el error]]
-  if PID.integral > (3600 / cyclesH) then
-    PID.integral = (3600 / cyclesH)
-    toolKit:log(INFO, 'antiwindup del integrador > '..(3600 / cyclesH))
-  end
-
-  -- calcular salida
-  PID.result = PID.proporcional + PID.integral + PID.derivativo
-
-  --[[antiwindup de la salida
-  si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
-  resultado al tiempo de ciclo meno tiempo mínimo y no se acumula el error]]
-  if PID.result >= (3600 / cyclesH) then
-    -- al menos apgar tiempo mínimo
-    PID.result = (3600 / cyclesH) - minTimeAction
-    toolKit:log(INFO, 'antiwindup salida > '..(3600 / cyclesH))
-  elseif PID.result < 0 then
-    PID.result = 0
-    toolKit:log(INFO, 'antiwindup salida < 0')
-  end
-
-  --[[limitador por histeresis
-  si error es menor o igual que la histeresis limitar la salida a 0, siempre
-  que la tempeatura venga subiendo, no limitar hiteresis de bajada. Resetear
-  el error acumulado. Si no hacemos esto tenemos acciones de control de la
-  parte integral muy altas debidas a un error acumulado grande cuando estamos
-  en histéresis. Eso provoca acciones integrales diferidas muy grandes]]
-  if PID.result > 0 and math.abs(PID.newErr) <= histeresis then
-    PID.acumErr = 0
-    if PID.lastInput < PID.value then -- solo de subida
-      PID.result = 0
-      toolKit:log(INFO, 'histéresis error ∓'..histeresis)
-    end
-  end
-
-  --[[límitador de acción mínima
-  si el resultado es menor que el tiempo mínimo de acción, ajustar a 0.
-  si se va a encender menos del tiempo mínimo, no encender]]
-  if (PID.result <= math.abs(minTimeAction)) and (PID.result ~= 0) then
-    PID.result = 0
-    toolKit:log(INFO, 'tiempo salida ∓'..minTimeAction)
-    --[[si se va a apgar menos de tiempo mínimo no apagar]]
-  elseif PID.result > ((3600 / cyclesH) - minTimeAction) then
-    PID.result = (3600 / cyclesH) - minTimeAction
-  end
-
-  -- informar
-  toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
-  PID.integral..', D='..PID.derivativo..', S='..PID.result)
-
-  -- recordar algunas variables para el proximo ciclo SE conservan en el PID
-  --result, lastInput, acumErr = PID.result, termostatoVirtual.value,
-  --PID.acumErr
-  PID.lastInput = PID.value
-  -- ajustar el punto de cambio de estado de la Caldera
-  PID.changePoint = os.time() + PID.result
-  -- añadir tiemstamp al PID
-  PID.timestamp = os.time()
-
-  -- devolver PID
-  return PID
-
-  -- informar
-  toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
-  toolKit:log(INFO, '-------------------------------------------------------')
-end -- function
 
 --[[isVariable(varName)
     (string) varName: nombre de la variable global
@@ -193,11 +85,11 @@ function resetDevice(nodeId)
   -- el dispositivo tiene un PID
   local PID = {result = 0, newErr = 0, acumErr = 0, proporcional = 0,
    integral = 0, derivativo = 0, lastInput = 0, value = 0, targetLevel = 0,
-   kP = 0, antiwindupReset = 0, kD = 0, tuneTime = 0, checkPoint = 0,
-   changePoint = 0, minTimeAction = 0, cyclesH = 0, kI = 0, histeresis = 0}
+   kP = 25, antiwindupReset = 0.1, kD = 2.5, tuneTime = 0, checkPoint = 0,
+   changePoint = 0, minTimeAction = 6, cyclesH = 60, kI = 5, histeresis = 0.01}
 
   local termostatoVirtual = {PID = PID, nodeId = nodeId, panelId = 0,
-   probeId = 0, targetLevel = 0, value = 0, mode = 1, timestamp = os.time(),
+   probeId = 268, actuatorId = 243, targetLevel = 0, value = 0, mode = 1, timestamp = os.time(),
    oN=false}
   -- guardar la tabla en la variable global
   fibaro:setGlobal('dev'..nodeId, json.encode(termostatoVirtual))
@@ -338,6 +230,130 @@ function setActuador(actuatorId, actuador)
   end
 end
 
+--[[updateStatistics(PID)
+  (table) PID:  tabla que representa el PID
+  actualiza los valores en thingspeak]]
+function updateStatistics(PID, thingspeakKey)
+  -- analizar resultado
+  toolKit:log(DEBUG, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
+   PID.integral..', D='..PID.derivativo..', S='..PID.result)
+  --timestampPID = termostatoVirtual.PID['timestamp']
+  if not thingspeak then
+    thingspeak = Net.FHttp("api.thingspeak.com")
+  end
+  local payload = "key="..thingspeakKey.."&field1="..PID.newErr..
+  "&field2="..PID.proporcional.."&field3="..PID.integral..
+  "&field4="..PID.derivativo.."&field5="..PID.result..
+  "&field6="..termostatoVirtual.targetLevel.."&field7="..termostatoVirtual.value
+  local response, status, errorCode = thingspeak:POST('/update', payload)
+end
+
+--[[calculatePID()
+  (table) PID:  tabla que representa el estado actual del PID
+  Calcula el PID y devuelve una tabla que lo representa --]]
+function calculatePID(PID)
+  -- calcular error
+  PID.newErr = PID.targetLevel - PID.value
+
+  -- calcular proporcional y si es negativo dejarlo a cero
+  PID.proporcional = PID.newErr * PID.kP
+  if PID.proporcional < 0 then
+    PID.proporcional = 0
+    toolKit:log(INFO, 'proporcional < 0')
+  end
+
+  -- anti derivative kick usar el inverso de (currentTemp - lastInput) en
+  -- lugar de error
+  PID.derivativo = ((PID.value - PID.lastInput) * PID.kD) * - 1
+
+  --[[reset del antiwindup
+  si el error no esta comprendido dentro del ámbito de actuación del
+  integrador, no se usa el cálculo integral y se acumula error = 0]]
+  if math.abs(PID.newErr) > PID.antiwindupReset then
+    PID.integral = 0
+    PID.acumErr = 0
+    toolKit:log(INFO, 'reset antiwindup del integrador ∓'..PID.antiwindupReset)
+
+  --[[uso normal del integrador
+  se calcula el resultado con el error acumulado anterior y se acumula el
+  error actual al error anterior]]
+  else
+    -- calcular integral
+    PID.integral = PID.acumErr * PID.kI
+    PID.acumErr = PID.acumErr + PID.newErr
+  end
+
+  --[[antiwindup del integrador
+  si el cálculo integral es mayor que el tiempo de ciclo, se ajusta el
+  resultado al tiempo de ciclo y no se acumula el error]]
+  if PID.integral > (3600 / PID.cyclesH) then
+    PID.integral = (3600 / PID.cyclesH)
+    toolKit:log(INFO, 'antiwindup del integrador > '..(3600 / PID.cyclesH))
+  end
+
+  -- calcular salida
+  PID.result = PID.proporcional + PID.integral + PID.derivativo
+
+  --[[antiwindup de la salida
+  si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
+  resultado al tiempo de ciclo meno tiempo mínimo y no se acumula el error]]
+  if PID.result >= (3600 / PID.cyclesH) then
+    -- al menos apgar tiempo mínimo
+    PID.result = (3600 / PID.cyclesH) - PID.minTimeAction
+    toolKit:log(INFO, 'antiwindup salida > '..(3600 / PID.cyclesH))
+  elseif PID.result < 0 then
+    PID.result = 0
+    toolKit:log(INFO, 'antiwindup salida < 0')
+  end
+
+  --[[limitador por histeresis
+  si error es menor o igual que la histeresis limitar la salida a 0, siempre
+  que la tempeatura venga subiendo, no limitar hiteresis de bajada. Resetear
+  el error acumulado. Si no hacemos esto tenemos acciones de control de la
+  parte integral muy altas debidas a un error acumulado grande cuando estamos
+  en histéresis. Eso provoca acciones integrales diferidas muy grandes]]
+  if PID.result > 0 and math.abs(PID.newErr) <= PID.histeresis then
+    PID.acumErr = 0
+    if PID.lastInput < PID.value then -- solo de subida
+      PID.result = 0
+      toolKit:log(INFO, 'histéresis error ∓'..PID.histeresis)
+    end
+  end
+
+  --[[límitador de acción mínima
+  si el resultado es menor que el tiempo mínimo de acción, ajustar a 0.
+  si se va a encender menos del tiempo mínimo, no encender]]
+  if (PID.result <= math.abs(PID.minTimeAction)) and (PID.result ~= 0) then
+    PID.result = 0
+    toolKit:log(INFO, 'tiempo salida ∓'..PID.minTimeAction)
+    --[[si se va a apgar menos de tiempo mínimo no apagar]]
+  elseif PID.result > ((3600 / PID.cyclesH) - PID.minTimeAction) then
+    PID.result = (3600 / PID.cyclesH) - PID.minTimeAction
+  end
+
+  -- informar
+  toolKit:log(INFO, 'E='..PID.newErr..', P='..PID.proporcional..', I='..
+  PID.integral..', D='..PID.derivativo..', S='..PID.result)
+
+  -- recordar algunas variables para el proximo ciclo SE conservan en el PID
+  --result, lastInput, acumErr = PID.result, termostatoVirtual.value,
+  --PID.acumErr
+  PID.lastInput = PID.value
+  -- ajustar el punto de cambio de estado de la Caldera
+  PID.changePoint = os.time() + PID.result
+  -- ajustar el punto de próximo cálculo
+  PID.checkPoint = os.time() + (3600 / PID.cyclesH)
+  -- añadir tiemstamp al PID
+  PID.timestamp = os.time()
+
+  -- informar
+  toolKit:log(INFO, 'Error acumulado: '..PID.acumErr)
+  toolKit:log(INFO, '-------------------------------------------------------')
+
+  -- devolver PID
+  return PID
+end
+
 -- actualizar etiqueta identificador
 fibaro:call(_selfId, "setProperty", "ui.labelId.value",'id: '.._selfId)
 
@@ -372,9 +388,9 @@ while true do
 
   --[[temperarura de consigna]]
   -- comparar timestamp con os.time() y comprobar si hay panel
-  if (termostatoVirtual.timestamp < os.time()) and termostatoVirtual.panelId ~= 0
-   and termostatoVirtual.mode ~= 0
-   then
+  if (termostatoVirtual.timestamp < os.time())
+   and termostatoVirtual.panelId ~= 0
+   and termostatoVirtual.mode ~= 0 then
     -- si es menor y status es AUTOMATICO, tomar temperatura del panel
     targetLevel = getTargetLevel(panel)
     toolKit:log(DEBUG, 'Temperatura consigna: '..targetLevel..'ºC')
@@ -450,18 +466,25 @@ while true do
   fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
 
   -- si se ha cumplido el ciclo o si ha cambiado la consigna, calcular el PID
-  -- TODO
-  if os.time() >= termostatoVirtual['PID'].checkPoint then
+  if os.time() >= termostatoVirtual['PID'].checkPoint or
+  termostatoVirtual.targetLevel ~= termostatoVirtual['PID'].targetLevel then
+    -- asgnar la consgna y la temperatura actual
+    termostatoVirtual['PID'].targetLevel = termostatoVirtual.targetLevel
+    termostatoVirtual['PID'].value = termostatoVirtual.value
     -- actualizar dispositivo
     termostatoVirtual.PID = calculatePID(termostatoVirtual.PID)
     -- guardar el nuevo PID
     fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))
+    -- recuperar dispositivo
+    termostatoVirtual = getDevice(termostatoVirtual.nodeId)
+    -- actualizar estadísticas
+    --updateStatistics(ID, thingspeakKey)
   end
 
   --[[encendido / apagado
   si os.time() menor que el punto de cambio "changePoint" APAGADO
   si os.time() mayor o igual al punto de cambio, ENCENDIDO--]]
-  if os.time() >= PID.changePoint then
+  if os.time() <= termostatoVirtual['PID'].changePoint then
     -- informar
     toolKit:log(DEBUG, 'ON')
     -- actuar sobre el actuador si es preciso
@@ -476,8 +499,7 @@ while true do
   -- esperar para evitar colapsar la CPU
   fibaro:sleep(1000)
   -- para control por watchdog
-  toolKit:log(INFO, release['name']..' OK')
-
+  --toolKit:log(INFO, release['name']..' OK')
 end
 
---🌛🔧🌡🔥🔘⏱📈
+--[[--------- FIN BUCLE PRINCIPAL 🌛🔧🌡🔥🔘⏱📈 ---------------------------]]
