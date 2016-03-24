@@ -50,9 +50,9 @@ local binarySwitches = {}
 table.insert(binarySwitches, {id = 0, name = '🔧'})
 for key, value in pairs(devices) do
   -- para la habitación fibaro:getRoomID(_selfId)
-  -- todos los "type":"com.fibaro.binarySwitch",
-  if value["type"] == "com.fibaro.binarySwitch" or
-     value["type"] == "com.fibaro.operatingModeHorstmann" then
+  -- todos los "baseType":"com.fibaro.binarySwitch",
+  if value["baseType"] == "com.fibaro.binarySwitch" or
+     value["baseType"] == "com.fibaro.operatingMode" then
     local binarySwitch = {id = value.id, name = value.name}
     table.insert(binarySwitches, binarySwitch)
   end

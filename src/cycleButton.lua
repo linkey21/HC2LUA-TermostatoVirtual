@@ -58,8 +58,8 @@ else
 end
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(thermostatId)
-local K = termostatoVirtual.K
-K.cyclesH = actualCycle
+local PID = termostatoVirtual.PID
+PID.cyclesH = actualCycle
 -- actualizar dispositivo
 fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 -- actualizar etiqueta K

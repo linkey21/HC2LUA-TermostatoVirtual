@@ -5,11 +5,11 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-if not thermostatId then thermostatId = 631 end
-if not iconId then iconId = 1068 end
+if not thermostatId then thermostatId = 391 end
+if not iconId then iconId = 373 end
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
-local release = {name='configurardorTermost', ver=1, mayor=0, minor=1}
+local release = {name='configurardorTermost', ver=2, mayor=0, minor=0}
 -- ID de este dispositivo virtual
 if not _selfId then _selfId = fibaro:getSelfId() end
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
@@ -51,14 +51,14 @@ while true do
 
   -- recuperar dispositivo
   local termostatoVirtual = getDevice(thermostatId)
-  local K = termostatoVirtual.K
-  if not K.cyclesH then K.cyclesH = 3 end
+  local PID = termostatoVirtual.PID
+  if not PID.cyclesH then PID.cyclesH = 3 end
+
   -- actualizar etiquetas K
-  --fibaro:debug('Kp='..K.kP..' Ki='..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)
-  fibaro:call(_selfId, "setProperty", "ui.KLabel.value", 'Kp='..K.kP..' Ki='
-   ..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)
+  fibaro:call(_selfId, "setProperty", "ui.KLabel.value", 'Kp='..PID.kP..' Ki='
+   ..PID.kI..' Kd='..PID.kD..' c/h='..PID.cyclesH)
   fibaro:call(_selfId, "setProperty", "ui.hisWindLabel.value",
-   'histeresis='..K.histeresis..' antiwindupReset='..K.antiwindupReset)
+   'histeresis='..PID.histeresis..' antiwindupReset='..PID.antiwindupReset)
 
    -- actualizar la etiqueta de sonda
    local probeName
@@ -84,5 +84,4 @@ while true do
    fibaro:sleep(1000)
    -- para control por watchdog
    fibaro:debug(release['name']..' OK')
-
 end

@@ -42,7 +42,7 @@ end
 
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(thermostatId)
-local K = termostatoVirtual.K
+local K = termostatoVirtual.PID
 
 -- decrementar valor kP
 --if K.kP > 0 then K.kP = K.kP - 1 else K.kP = 999 end
