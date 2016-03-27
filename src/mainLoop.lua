@@ -7,22 +7,26 @@
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
 if not _MANTEN then _MANTEN = false end
 -- id de los iconos ON OFF
-local iconON = 372
-local iconOFF = 371
-local thingspeakKey = 'BM0VMH4AF1JZN3QD'
+local iconON = 1067
+local iconOFF = 1066
+local thingspeakKey = 'CQCLQRAU070GEOYY'
 --[[ nombre de la funcion que hay que usar para encender/apagar el actuador y
      delnombre de la propieda que muestra el estado
 local actuatorOn = 'setMode'
 local actuatorOff = 'setMode'
 local actuatorStatus = 'mode'
---]]
 local actuatorOn = 'turnOn'
 local actuatorOff = 'turnOff'
 local actuatorStatus = 'value'
+--]]
+actuatorOn = 'setMode'
+actuatorOff = 'setMode'
+actuatorStatus = 'mode'
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
 local virtualProbe = function (self, ...)
-  return 0
+  local t = fibaro:getValue(389, 'value')
+  return math.floor((t - ((41 - t) / t)) * 100) / 100
 end
 --[[----- FIN CONFIGURACION DE USUARIO ---------------------------------------]]
 
@@ -34,7 +38,7 @@ local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 mode[3]='CALIBRADO_F1'; mode[4]='CALIBRADO_F2'; mode[5]='CALIBRADO_FIN'
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
-nivelLog = INFO                    -- nivel de log
+nivelLog = DEBUG                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
 --[[toolKit
@@ -331,23 +335,22 @@ function setActuador(actuatorId, actuador)
   -- si el actuador no está en modo mantenimiento
   toolKit:log(DEBUG, actuatorId)
   if actuatorId and actuatorId ~= 0 and not _MANTEN then
-    toolKit:log(DEBUG, 'Hay actuador')
     -- comprobar estado actual
-    local actuatorState
     local actuatorState = fibaro:getValue(actuatorId, actuatorStatus)
+    toolKit:log(DEBUG, 'Actuador : '..actuatorId..' con estado : '..actuatorState)
     -- si hay que encender y esta apagado
     toolKit:log(DEBUG, actuatorState)
     if actuador and actuatorState == '0' then
       -- informar
       toolKit:log(INFO, 'Actuador-ON')
-      --fibaro:call(617, 'turnOn')
+      fibaro:call(617, 'turnOn')
       fibaro:call(actuatorId, actuatorOn, 1)
     end
     -- si hay que apagar y está encendido
     if not actuador and actuatorState == '1' then
       -- informar
       toolKit:log(INFO, 'Actuador-OFF')
-      --fibaro:call(617, 'turnOff')
+      fibaro:call(617, 'turnOff')
       fibaro:call(actuatorId, actuatorOff, 0)
     end
   end
