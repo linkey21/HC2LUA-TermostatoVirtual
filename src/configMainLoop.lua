@@ -5,13 +5,13 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-if not thermostatId then thermostatId = 391 end
-if not iconId then iconId = 373 end
+if not iconId then iconId = 1068 end
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
 local release = {name='configurardorTermost', ver=2, mayor=0, minor=0}
 -- ID de este dispositivo virtual
 if not _selfId then _selfId = fibaro:getSelfId() end
+
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
 --[[isVariable(varName)
@@ -43,6 +43,11 @@ end
 
 --[[--------- BUCLE PRINCIPAL ------------------------------------------------]]
 while true do
+  -- obtener id del termostato
+  local idLabel = fibaro:get(_selfId, 'ui.terostatLabel.value')
+  local p2 = string.find(idLabel, '-')
+  local thermostatId = tonumber(string.sub(idLabel, 1, p2 - 1))
+
   -- actualizar etiqueta identificador
   fibaro:call(_selfId, "setProperty", "ui.idLabel.value", 'Termostato: '
    ..thermostatId..' Panel Config.:'.._selfId)

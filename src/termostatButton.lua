@@ -1,6 +1,6 @@
 --[[ TermostatoVirtual
 	Dispositivo virtual
-	probeButton.lua
+	termostatButton.lua
 	por Manuel Pascual
 ------------------------------------------------------------------------------]]
 
@@ -10,18 +10,12 @@
 --[[----- NO CAMBIAR EL CODIGO A PARTIR DE AQUI ------------------------------]]
 
 --[[----- CONFIGURACION AVANZADA ---------------------------------------------]]
--- obtener id del termostato
 local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
--- obtener id del termostato
-local idLabel = fibaro:get(_selfId, 'ui.terostatLabel.value')
-local p2 = string.find(idLabel, '-')
-local thermostatId = tonumber(string.sub(idLabel, 1, p2 - 1))
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
---[[----------------------------------------------------------------------------
-isVariable(varName)
-	comprueba si existe una variable global dada(varName)
---]]
+-- isVariable(varName)
+-- (string) varName: nombre de la variable global
+-- comprueba si existe una variable global dada
 function isVariable(varName)
   -- comprobar si existe
   local valor, timestamp = fibaro:getGlobal(varName)
@@ -45,42 +39,45 @@ end
 if not HC2 then
   HC2 = Net.FHttp("127.0.0.1", 11111)
 end
--- obtener sensores de temperatura
+-- obtener sensores interruptores / actuadores
 response ,status, errorCode = HC2:GET("/api/devices")
 local devices = json.decode(response)
-local temperatureSensors = {}
+local virtualDevices = {}
+--table.insert(virtualDevices, {id = 0, name = '🔧'})
 for key, value in pairs(devices) do
   -- para la habitación fibaro:getRoomID(_selfId)
-  -- todos los "type":"com.fibaro.temperatureSensor",
-  if value["type"] == "com.fibaro.temperatureSensor" then
-    local temperatureSensor = {id = value.id, name = value.name}
-    table.insert(temperatureSensors, temperatureSensor)
+  -- todos los "baseType":"com.fibaro.virtualDevices",
+  if value["type"] == "virtual_device" and
+  string.find(value["properties"].mainLoop, "termostat.linkey.es") then
+    local virtualDevice = {id = value.id, name = value.name}
+    table.insert(virtualDevices, virtualDevice)
   end
 end
--- añadir sonda virtual
-local temperatureSensor = {id = 0, name = 'Sonda Virtual'}
-table.insert(temperatureSensors, temperatureSensor)
 
 -- seleccionar el siguiete sensor que corresponda
-temperatureSensor = fibaro:get(_selfId, 'ui.probeLabel.value')
+local device = fibaro:get(_selfId, 'ui.terostatLabel.value')
 local myKey = 1
-for key, value in pairs(temperatureSensors) do
+for key, value in pairs(virtualDevices) do
   fibaro:debug(value.name..' '..key..' '..myKey)
-  if value.id..'-'..value.name == temperatureSensor then
-    fibaro:debug(temperatureSensor)
-    if key < #temperatureSensors then myKey = key + 1 else myKey = 1 end
+  if value.id..'-'..value.name == device then
+    fibaro:debug(device)
+    if key < #virtualDevices then myKey = key + 1 else myKey = 1 end
     break
   else
-    myKey = #temperatureSensors
+    myKey = #virtualDevices
   end
 end
 
--- actualizar la etiqueta de sonda
-fibaro:call(_selfId, "setProperty", "ui.probeLabel.value",
- temperatureSensors[myKey].id..'-'..temperatureSensors[myKey].name)
+-- actualizar la etiqueta de actuador
+fibaro:call(_selfId, "setProperty", "ui.terostatLabel.value",
+ virtualDevices[myKey].id..'-'..virtualDevices[myKey].name)
 -- recuperar dispositivo
-local termostatoVirtual = getDevice(thermostatId)
---actualizar dispositivo
-termostatoVirtual.probeId = temperatureSensors[myKey].id
-fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
+local termostatoVirtual = getDevice(virtualDevices[myKey].id)
+-- si se ha seleccionado un termostatoVirtual
+if termostatoVirtual then
+  --actualizar dispositivo
+  termostatoVirtual.nodeId = virtualDevices[myKey].id
+  fibaro:setGlobal('dev'..virtualDevices[myKey].id,
+  json.encode(termostatoVirtual))
+end
 --[[--------------------------------------------------------------------------]]

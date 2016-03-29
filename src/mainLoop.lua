@@ -1,11 +1,11 @@
---[[ TermostatoVirtual
+--[[ termostat.linkey.es
 	Dispositivo virtual
 	mainLoop.lua
 	por Manuel Pascual
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-if not _MANTEN then _MANTEN = false end
+if not _MANTEN then _MANTEN = true end
 -- id de los iconos ON OFF
 local iconON = 1067
 local iconOFF = 1066
@@ -38,7 +38,7 @@ local _selfId = fibaro:getSelfId()  -- ID de este dispositivo virtual
 local mode = {}; mode[0]='OFF'; mode[1]='AUTO'; mode[2]='MANUAL'
 mode[3]='CALIBRADO_F1'; mode[4]='CALIBRADO_F2'; mode[5]='CALIBRADO_FIN'
 OFF=1;INFO=2;DEBUG=3                -- referencia para el log
-nivelLog = DEBUG                    -- nivel de log
+nivelLog = INFO                    -- nivel de log
 --[[----- FIN CONFIGURACION AVANZADA -----------------------------------------]]
 
 --[[toolKit
@@ -523,4 +523,4 @@ while true do
   toolKit:log(INFO, release['name']..' OK')
 end
 
---[[--------- FIN BUCLE PRINCIPAL 🌛🔧🌡🔥🔘⏱📈 ---------------------------]]
+--[[--------- FIN BUCLE PRINCIPAL 🌛🔧🌡🔥🔘⏱📈 📟⚙-----------------------]]
