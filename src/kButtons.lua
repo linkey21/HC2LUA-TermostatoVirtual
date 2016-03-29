@@ -78,7 +78,7 @@ else K.antiwindupReset = 0
 end
 
 --actualizar dispositivo
-termostatoVirtual.K = K
+termostatoVirtual.PID = K
 fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 
 --[[ actualizar etiqueta
