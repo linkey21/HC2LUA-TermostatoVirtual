@@ -5,7 +5,7 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-if not _MANTEN then _MANTEN = true end
+if not _MANTEN then _MANTEN = false end
 -- id de los iconos ON OFF
 local iconON = 1067
 local iconOFF = 1066
@@ -19,9 +19,7 @@ local actuatorOn = 'turnOn'
 local actuatorOff = 'turnOff'
 local actuatorStatus = 'value'
 --]]
-actuatorOn = 'setMode'
-actuatorOff = 'setMode'
-actuatorStatus = 'mode'
+
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
 local virtualProbe = function (self, ...)
@@ -64,12 +62,11 @@ if not toolKit then toolKit = {
     (table) PID:  tabla que representa el estado actual del PID
     Calcula el PID y lo devuelve una tabla que lo representa
     Tabla PID:
-    {result = (number), newErr = (number), acumErr = (number),
-    proporcional = (number), integral = (number), derivativo = (number),
-    lastInput = (number), value = (number), targetLevel = (number),
-    kP = (number), antiwindupReset = (number), kD = (number), tuneTime = (number),
-    checkPoint = (number), changePoint = (number), minTimeAction = (number),
-    cyclesH = (number), kI = (number), histeresis = (number)}
+    {result = 0, newErr = 0, acumErr = 0, proporcional = 0,
+    integral = 0, derivativo = 0, lastInput = 0, value = 0, targetLevel = 0,
+    kP = 250, kI = 50, kD = 25, cyclesH = 12, antiwindupReset = 1, tuneTime = 0,
+    checkPoint = 0, changePoint = 0, minTimeAction = 30, secureTimeAction = 0,
+    histeresis = 0.1}
     --]]
   function(self, PID, ...)
     toolKit:log(INFO, '----- calculatePID v2.0 -----------------------------')
@@ -117,12 +114,13 @@ if not toolKit then toolKit = {
 
     --[[antiwindup de la salida
     si el resultado es mayor que el que el tiempo de ciclo, se ajusta el
-    resultado al tiempo de ciclo menos tiempo mínimo y no se acumula el error]]
+    resultado al tiempo de ciclo menos tiempo de seguridad y no se acumula el
+    error --]]
     if PID.result >= (3600 / PID.cyclesH) then
       -- al menos apgar tiempo mínimo
-      PID.result = (3600 / PID.cyclesH) - PID.minTimeAction
+      PID.result = (3600 / PID.cyclesH) - PID.secureTimeAction
       toolKit:log(INFO, 'antiwindup salida > '..(3600 / PID.cyclesH) -
-       PID.minTimeAction)
+       PID.secureTimeAction)
     elseif PID.result < 0 then
       PID.result = 0
       toolKit:log(INFO, 'antiwindup salida < 0')
@@ -148,9 +146,9 @@ if not toolKit then toolKit = {
     if (PID.result <= math.abs(PID.minTimeAction)) and (PID.result ~= 0) then
       PID.result = 0
       toolKit:log(INFO, 'tiempo salida ∓'..PID.minTimeAction)
-      --[[si se va a apgar menos de tiempo mínimo no apagar]]
-    elseif PID.result > ((3600 / PID.cyclesH) - PID.minTimeAction) then
-      PID.result = (3600 / PID.cyclesH) - PID.minTimeAction
+      --[[si se va a apgar menos de tiempo de seguridad no apagar]]
+    elseif PID.result > ((3600 / PID.cyclesH) - PID.secureTimeAction) then
+      PID.result = (3600 / PID.cyclesH) - PID.secureTimeAction
     end
 
     -- informar
@@ -213,8 +211,11 @@ function resetDevice(nodeId)
    checkPoint = 0, changePoint = 0, minTimeAction = 30, secureTimeAction = 0,
    histeresis = 0.1}
 
-  local termostatoVirtual = {PID = PID, nodeId = nodeId, panelId = 0,
-   probeId = 0, actuatorId = 0, targetLevel = 0, value = 0, mode = 1,
+  local actuator = {id = 0, name = '', onFunction = '', offFunction = '',
+   statusPropertie = ''}
+
+  local termostatoVirtual = {PID = PID, actuator = actuator, nodeId = nodeId,
+   panelId = 0, probeId = 0, targetLevel = 0, value = 0, mode = 1,
    timestamp = os.time(), oN = false}
   -- guardar la tabla en la variable global
   fibaro:setGlobal('dev'..nodeId, json.encode(termostatoVirtual))
@@ -327,32 +328,32 @@ function getTargetLevel(panel)
   return temperatura
 end
 
---[[setActuador(actuatorId, actuador)
-    (number)  actuatorId: id del Actuador
-    (boolean) actuador: estado true = ON, false = OFF
-  ordena el apagado/encendido a a un actuador, este solo opera si la orden es
+--[[setActuador(actuator, start)
+    (table)  actuator: tabla que representa un actuador
+    (boolean) start: encender = true, apagar = false
+  ordena el apagado/encendido a un actuador, este solo opera si la orden es
   contraria al estado actual de actuador --]]
-function setActuador(actuatorId, actuador)
+function setActuador(actuator, start)
   -- si el actuador no está en modo mantenimiento
-  toolKit:log(DEBUG, actuatorId)
-  if actuatorId and actuatorId ~= 0 and not _MANTEN then
+  toolKit:log(DEBUG, actuator.id)
+  if actuator.id and actuator.id ~= 0 and not _MANTEN then --maintenance
     -- comprobar estado actual
-    local actuatorState = fibaro:getValue(actuatorId, actuatorStatus)
-    toolKit:log(DEBUG, 'Actuador : '..actuatorId..' con estado : '..actuatorState)
+    local actuatorState = fibaro:getValue(actuator.id, actuator.statusPropertie)
+    toolKit:log(DEBUG, 'Actuador : '..actuator.id..' con estado : '..
+     actuatorState)
     -- si hay que encender y esta apagado
-    toolKit:log(DEBUG, actuatorState)
-    if actuador and actuatorState == '0' then
+    if start and actuatorState == '0' then
       -- informar
       toolKit:log(INFO, 'Actuador-ON')
       fibaro:call(617, 'turnOn')
-      fibaro:call(actuatorId, actuatorOn, 1)
+      fibaro:call(actuator.id, actuator.onFunction, 1)
     end
     -- si hay que apagar y está encendido
-    if not actuador and actuatorState == '1' then
+    if not start and actuatorState == '1' then
       -- informar
       toolKit:log(INFO, 'Actuador-OFF')
       fibaro:call(617, 'turnOff')
-      fibaro:call(actuatorId, actuatorOff, 0)
+      fibaro:call(actuator.id, actuator.offFunction, 0)
     end
   end
 end
@@ -491,14 +492,14 @@ while true do
     -- anotar
     termostatoVirtual.oN = true
     -- actuar sobre el actuador si es preciso
-    setActuador(termostatoVirtual.actuatorId, true)
+    setActuador(termostatoVirtual.actuator, true)
   else
     -- informar
     toolKit:log(DEBUG, 'OFF')
     -- anotar
     termostatoVirtual.oN = false
     -- actuar sobre el actuador si es preciso
-    setActuador(termostatoVirtual.actuatorId, false)
+    setActuador(termostatoVirtual.actuator, false)
   end
   -- guardar nuevo estado oNoFf
   fibaro:setGlobal('dev'.._selfId, json.encode(termostatoVirtual))

@@ -49,11 +49,14 @@ local devices = json.decode(response)
 local binarySwitches = {}
 table.insert(binarySwitches, {id = 0, name = '🔧'})
 for key, value in pairs(devices) do
-  -- para la habitación fibaro:getRoomID(_selfId)
-  -- todos los "baseType":"com.fibaro.binarySwitch",
-  if value["baseType"] == "com.fibaro.binarySwitch" or
-     value["baseType"] == "com.fibaro.operatingMode" then
-    local binarySwitch = {id = value.id, name = value.name}
+  -- todos los "baseType":"com.fibaro.binarySwitch" o "com.fibaro.operatingMode"
+  if value["type"] == "com.fibaro.binarySwitch" then
+    local binarySwitch = {id = value.id, name = value.name,
+     onFunction = 'turnOn', offFunction = 'turnOff', statusPropertie = 'value'}
+    table.insert(binarySwitches, binarySwitch)
+  elseif value["baseType"] == "com.fibaro.operatingMode" then
+    local binarySwitch = {id = value.id, name = value.name,
+     onFunction = 'setMode', offFunction = 'setMode', statusPropertie = 'mode'}
     table.insert(binarySwitches, binarySwitch)
   end
 end
@@ -78,6 +81,9 @@ fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value",
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(thermostatId)
 --actualizar dispositivo
-termostatoVirtual.actuatorId = binarySwitches[myKey].id
+termostatoVirtual.actuator = {id = binarySwitches[myKey].id,
+ onFunction = binarySwitches[myKey].onFunction,
+ offFunction = binarySwitches[myKey].offFunction,
+ statusPropertie = binarySwitches[myKey].statusPropertie}
 fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 --[[--------------------------------------------------------------------------]]

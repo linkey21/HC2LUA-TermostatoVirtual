@@ -78,13 +78,13 @@ while true do
 
    -- actualizar la etiqueta de actuador
    local actuatorName
-   if termostatoVirtual.actuatorId == 0 then
+   if termostatoVirtual['actuator'].id == 0 then
      actuatorName ='🔧'
    else
-     actuatorName = fibaro:getName(termostatoVirtual.actuatorId)
+     actuatorName = fibaro:getName(termostatoVirtual['actuator'].id)
    end
    fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value",
-    termostatoVirtual.actuatorId..'-'..actuatorName)
+    termostatoVirtual['actuator'].id..'-'..actuatorName)
 
    -- esperar para evitar colapsar la CPU
    fibaro:sleep(1000)
