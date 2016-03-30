@@ -70,11 +70,22 @@ end]]
 if K.antiwindupReset > 0 then
   K.antiwindupReset = K.antiwindupReset - .01
 else K.antiwindupReset = 1
-end]]
+end
 --incrementar valor antiwindupReset
 if K.antiwindupReset < 1 then
   K.antiwindupReset = K.antiwindupReset + .01
 else K.antiwindupReset = 0
+end
+-- decrementar valor minTimeAction
+if K.minTimeAction > 0 then
+  K.minTimeAction = K.minTimeAction - 1
+else K.minTimeAction = 60
+end--]]
+
+-- incrementar valor minTimeAction
+if K.minTimeAction < 60 then
+  K.minTimeAction = K.minTimeAction + 1
+else K.minTimeAction = 0
 end
 
 --actualizar dispositivo
@@ -84,5 +95,6 @@ fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 --[[ actualizar etiqueta
 fibaro:call(_selfId, "setProperty", "ui.KLabel.value", 'Kp='..K.kP..' Ki='
  ..K.kI..' Kd='..K.kD..' c/h='..K.cyclesH)]]
-fibaro:call(_selfId, "setProperty", "ui.hisWindLabel.value", 'histeresis='
- ..K.histeresis..' antiwindupRes='..K.antiwindupReset)
+fibaro:call(_selfId, "setProperty", "ui.hisWindLabel.value", 'his='
+ ..K.histeresis..' wUp='..K.antiwindupReset..' mTa='..K.minTimeAction
+ ..' sTa='..K.secureTimeAction)

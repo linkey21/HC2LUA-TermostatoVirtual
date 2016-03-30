@@ -1,6 +1,6 @@
 --[[ TermostatoVirtual
 	Dispositivo virtual
-	cycleButton.lua
+	secTimeActButton.lua
 	por Manuel Pascual
 ------------------------------------------------------------------------------]]
 
@@ -41,28 +41,27 @@ function getDevice(nodeId)
 end
 
 -- obtener etiqueta actual
-local kLabel = fibaro:get(fibaro:getSelfId(), 'ui.KLabel.value')
-local actualCycle = tonumber(string.sub(kLabel, string.find(kLabel, 'c/h=')+ 4))
-kLabel = string.sub(kLabel, 1, string.find(kLabel, 'c/h=') + 3)
--- obtener id del termostato
+local kLabel = fibaro:get(fibaro:getSelfId(), 'ui.hisWindLabel.value')
+local actualTime = tonumber(string.sub(kLabel, string.find(kLabel, 'sTa=')+ 4))
+kLabel = string.sub(kLabel, 1, string.find(kLabel, 'sTa=') + 3)
 -- obtener id del termostato
 local idLabel = fibaro:get(fibaro:getSelfId(), 'ui.terostatLabel.value')
 local p2 = string.find(idLabel, '-')
 local thermostatId = tonumber(string.sub(idLabel, 1, p2 - 1))
 fibaro:debug(thermostatId)
--- aumentar ciclo
-if actualCycle < 12 then
-  actualCycle = actualCycle + 3
+-- rotar tiempo
+if actualTime < 60 then
+  actualTime = actualTime + 15
 else
-  actualCycle = 3
+  actualTime = 15
 end
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(thermostatId)
 local PID = termostatoVirtual.PID
-PID.cyclesH = actualCycle
+PID.secureTimeAction = actualTime
 -- actualizar dispositivo
 fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
 -- actualizar etiqueta K
-fibaro:call(fibaro:getSelfId(), "setProperty", "ui.KLabel.value",
- kLabel..actualCycle)
+fibaro:call(fibaro:getSelfId(), "setProperty", "ui.hisWindLabel.value",
+ kLabel..actualTime)
  --

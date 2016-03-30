@@ -209,8 +209,9 @@ function resetDevice(nodeId)
   -- el dispositivo tiene un PID
   local PID = {result = 0, newErr = 0, acumErr = 0, proporcional = 0,
    integral = 0, derivativo = 0, lastInput = 0, value = 0, targetLevel = 0,
-   kP = 250, antiwindupReset = 1, kD = 25, tuneTime = 0, checkPoint = 0,
-   changePoint = 0, minTimeAction = 30, cyclesH = 12, kI = 50, histeresis = 0.1}
+   kP = 250, kI = 50, kD = 25, cyclesH = 12, antiwindupReset = 1, tuneTime = 0,
+   checkPoint = 0, changePoint = 0, minTimeAction = 30, secureTimeAction = 0,
+   histeresis = 0.1}
 
   local termostatoVirtual = {PID = PID, nodeId = nodeId, panelId = 0,
    probeId = 0, actuatorId = 0, targetLevel = 0, value = 0, mode = 1,

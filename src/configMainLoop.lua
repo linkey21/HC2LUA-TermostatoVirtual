@@ -62,8 +62,9 @@ while true do
   -- actualizar etiquetas K
   fibaro:call(_selfId, "setProperty", "ui.KLabel.value", 'Kp='..PID.kP..' Ki='
    ..PID.kI..' Kd='..PID.kD..' c/h='..PID.cyclesH)
-  fibaro:call(_selfId, "setProperty", "ui.hisWindLabel.value",
-   'histeresis='..PID.histeresis..' antiwindupReset='..PID.antiwindupReset)
+   fibaro:call(_selfId, "setProperty", "ui.hisWindLabel.value", 'his='
+    ..PID.histeresis..' wUp='..PID.antiwindupReset..' mTa='..PID.minTimeAction
+    ..' sTa='..PID.secureTimeAction)
 
    -- actualizar la etiqueta de sonda
    local probeName
