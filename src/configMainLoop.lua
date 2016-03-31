@@ -46,6 +46,12 @@ while true do
   -- obtener id del termostato
   local idLabel = fibaro:get(_selfId, 'ui.terostatLabel.value')
   local p2 = string.find(idLabel, '-')
+  while not p2 do
+    fibaro:debug(release['name']..' esperando selección de termostato')
+    idLabel = fibaro:get(_selfId, 'ui.terostatLabel.value')
+    p2 = string.find(idLabel, '-')
+    fibaro:sleep(1000)
+  end
   local thermostatId = tonumber(string.sub(idLabel, 1, p2 - 1))
 
   -- actualizar etiqueta identificador
