@@ -5,20 +5,10 @@
 ------------------------------------------------------------------------------]]
 
 --[[----- CONFIGURACION DE USUARIO -------------------------------------------]]
-if not _MANTEN then _MANTEN = false end
 -- id de los iconos ON OFF
 local iconON = 1067
 local iconOFF = 1066
 local thingspeakKey = 'CQCLQRAU070GEOYY'
---[[ nombre de la funcion que hay que usar para encender/apagar el actuador y
-     delnombre de la propieda que muestra el estado
-local actuatorOn = 'setMode'
-local actuatorOff = 'setMode'
-local actuatorStatus = 'mode'
-local actuatorOn = 'turnOn'
-local actuatorOff = 'turnOff'
-local actuatorStatus = 'value'
---]]
 
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
@@ -208,11 +198,11 @@ function resetDevice(nodeId)
   local PID = {result = 0, newErr = 0, acumErr = 0, proporcional = 0,
    integral = 0, derivativo = 0, lastInput = 0, value = 0, targetLevel = 0,
    kP = 250, kI = 50, kD = 25, cyclesH = 12, antiwindupReset = 1, tuneTime = 0,
-   checkPoint = 0, changePoint = 0, minTimeAction = 30, secureTimeAction = 0,
+   checkPoint = 0, changePoint = 0, minTimeAction = 30, secureTimeAction = 15,
    histeresis = 0.1}
 
   local actuator = {id = 0, name = '', onFunction = '', offFunction = '',
-   statusPropertie = ''}
+   statusPropertie = '', maintenance = true}
 
   local termostatoVirtual = {PID = PID, actuator = actuator, nodeId = nodeId,
    panelId = 0, probeId = 0, targetLevel = 0, value = 0, mode = 1,
@@ -336,7 +326,7 @@ end
 function setActuador(actuator, start)
   -- si el actuador no está en modo mantenimiento
   toolKit:log(DEBUG, actuator.id)
-  if actuator.id and actuator.id ~= 0 and not _MANTEN then --maintenance
+  if actuator.id and actuator.id ~= 0 and not actuator.maintenance then
     -- comprobar estado actual
     local actuatorState = fibaro:getValue(actuator.id, actuator.statusPropertie)
     toolKit:log(DEBUG, 'Actuador : '..actuator.id..' con estado : '..
@@ -511,11 +501,11 @@ while true do
     onOff = ' 🔥'
     icono = iconON
   end
-  targetLevel = string.format('%.2f', termostatoVirtual.targetLevel)
+  local targetLevel = string.format('%.2f', termostatoVirtual.targetLevel)
   local value = string.format('%.2f', termostatoVirtual.value )
   -- actualizar etiqueta
   fibaro:call(_selfId, "setProperty", "ui.actualConsigna.value",
-   value..'ºC / '..termostatoVirtual.targetLevel..'ºC'..onOff)
+   value..'ºC / '..targetLevel..'ºC'..onOff)
   -- actualizar icono
   fibaro:call(_selfId, 'setProperty', "currentIcon", icono)
 

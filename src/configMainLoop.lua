@@ -49,8 +49,8 @@ while true do
   local thermostatId = tonumber(string.sub(idLabel, 1, p2 - 1))
 
   -- actualizar etiqueta identificador
-  fibaro:call(_selfId, "setProperty", "ui.idLabel.value", 'Termostato: '
-   ..thermostatId..' Panel Config.:'.._selfId)
+  fibaro:call(_selfId, "setProperty", "ui.idLabel.value", 'id: '.._selfId)
+
    -- actualizar icono
    fibaro:call(_selfId, 'setProperty', "currentIcon", iconId)
 
@@ -85,6 +85,13 @@ while true do
    end
    fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value",
     termostatoVirtual['actuator'].id..'-'..actuatorName)
+
+   -- actualizar etiqueta de modo del Actuador
+   if termostatoVirtual['actuator'].maintenance then
+     fibaro:call(_selfId, "setProperty", "ui.statusLabel.value", '🔧MANTEN')
+   else
+     fibaro:call(_selfId, "setProperty", "ui.statusLabel.value", '⚙ RUNNING')
+   end
 
    -- esperar para evitar colapsar la CPU
    fibaro:sleep(1000)

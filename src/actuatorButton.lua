@@ -40,50 +40,57 @@ function getDevice(nodeId)
   end
 end
 
-if not HC2 then
-  HC2 = Net.FHttp("127.0.0.1", 11111)
-end
--- obtener sensores interruptores / actuadores
-response ,status, errorCode = HC2:GET("/api/devices")
-local devices = json.decode(response)
-local binarySwitches = {}
-table.insert(binarySwitches, {id = 0, name = '🔧'})
-for key, value in pairs(devices) do
-  -- todos los "baseType":"com.fibaro.binarySwitch" o "com.fibaro.operatingMode"
-  if value["type"] == "com.fibaro.binarySwitch" then
-    local binarySwitch = {id = value.id, name = value.name,
-     onFunction = 'turnOn', offFunction = 'turnOff', statusPropertie = 'value'}
-    table.insert(binarySwitches, binarySwitch)
-  elseif value["baseType"] == "com.fibaro.operatingMode" then
-    local binarySwitch = {id = value.id, name = value.name,
-     onFunction = 'setMode', offFunction = 'setMode', statusPropertie = 'mode'}
-    table.insert(binarySwitches, binarySwitch)
-  end
-end
-
--- seleccionar el siguiete sensor que corresponda
-binarySwitch = fibaro:get(_selfId, 'ui.actuatorLabel.value')
-local myKey = 1
-for key, value in pairs(binarySwitches) do
-  fibaro:debug(value.name..' '..key..' '..myKey)
-  if value.id..'-'..value.name == binarySwitch then
-    fibaro:debug(binarySwitch)
-    if key < #binarySwitches then myKey = key + 1 else myKey = 1 end
-    break
-  else
-    myKey = #binarySwitches
-  end
-end
-
--- actualizar la etiqueta de actuador
-fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value",
- binarySwitches[myKey].id..'-'..binarySwitches[myKey].name)
 -- recuperar dispositivo
 local termostatoVirtual = getDevice(thermostatId)
---actualizar dispositivo
-termostatoVirtual.actuator = {id = binarySwitches[myKey].id,
- onFunction = binarySwitches[myKey].onFunction,
- offFunction = binarySwitches[myKey].offFunction,
- statusPropertie = binarySwitches[myKey].statusPropertie}
-fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
---[[--------------------------------------------------------------------------]]
+
+-- si el actuador está en modo running no se permite cambiar la configuración
+if termostatoVirtual['actuator'].maintenance then
+  -- obtener conexión con el controlador
+  if not HC2 then
+    HC2 = Net.FHttp("127.0.0.1", 11111)
+  end
+
+  -- obtener sensores interruptores / actuadores
+  response ,status, errorCode = HC2:GET("/api/devices")
+  local devices = json.decode(response)
+  local binarySwitches = {}
+  table.insert(binarySwitches, {id = 0, name = '🔧'})
+  for key, value in pairs(devices) do
+    -- todos los "baseType":"com.fibaro.binarySwitch" o "com.fibaro.operatingMode"
+    if value["type"] == "com.fibaro.binarySwitch" then
+      local binarySwitch = {id = value.id, name = value.name,
+      onFunction = 'turnOn', offFunction = 'turnOff', statusPropertie = 'value'}
+      table.insert(binarySwitches, binarySwitch)
+    elseif value["baseType"] == "com.fibaro.operatingMode" then
+      local binarySwitch = {id = value.id, name = value.name,
+      onFunction = 'setMode', offFunction = 'setMode', statusPropertie = 'mode'}
+      table.insert(binarySwitches, binarySwitch)
+    end
+  end
+
+  -- seleccionar el siguiete sensor que corresponda
+  binarySwitch = fibaro:get(_selfId, 'ui.actuatorLabel.value')
+  local myKey = 1
+  for key, value in pairs(binarySwitches) do
+    fibaro:debug(value.name..' '..key..' '..myKey)
+    if value.id..'-'..value.name == binarySwitch then
+      fibaro:debug(binarySwitch)
+      if key < #binarySwitches then myKey = key + 1 else myKey = 1 end
+      break
+    else
+      myKey = #binarySwitches
+    end
+  end
+
+  --actualizar dispositivo
+  termostatoVirtual.actuator = {id = binarySwitches[myKey].id,
+   onFunction = binarySwitches[myKey].onFunction,
+   offFunction = binarySwitches[myKey].offFunction,
+   statusPropertie = binarySwitches[myKey].statusPropertie,
+   maintenance = termostatoVirtual['actuator'].maintenance}
+  fibaro:setGlobal('dev'..thermostatId, json.encode(termostatoVirtual))
+
+  -- actualizar la etiqueta de actuador
+  fibaro:call(_selfId, "setProperty", "ui.actuatorLabel.value",
+   binarySwitches[myKey].id..'-'..binarySwitches[myKey].name)
+end
