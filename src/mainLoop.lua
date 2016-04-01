@@ -8,7 +8,7 @@
 -- id de los iconos ON OFF
 local iconON = 1067
 local iconOFF = 1066
-local thingspeakKey = 'CQCLQRAU070GEOYY'
+local thingspeakKey = ''
 
 -- función para obtener la temperatura de la sonda virtual, escribir a
 -- continuación de 'return' el código o expresión para obtener la temperatura
@@ -335,14 +335,12 @@ function setActuador(actuator, start)
     if start and actuatorState == '0' then
       -- informar
       toolKit:log(INFO, 'Actuador-ON')
-      fibaro:call(617, 'turnOn')
       fibaro:call(actuator.id, actuator.onFunction, 1)
     end
     -- si hay que apagar y está encendido
     if not start and actuatorState == '1' then
       -- informar
       toolKit:log(INFO, 'Actuador-OFF')
-      fibaro:call(617, 'turnOff')
       fibaro:call(actuator.id, actuator.offFunction, 0)
     end
   end
